@@ -2,7 +2,7 @@
 
 A stock market game and money-skills course for the **Alpha Academy Mentoring Program** of the **Gamma Iota Lambda Chapter** (Brooklyn Alphas) of Alpha Phi Alpha Fraternity, Inc.
 
-Students join a game with a code from their mentor, get the same play money, and trade real U.S. stocks and ETFs at real market prices. They compete on a leaderboard where the S&P 500 is the benchmark to beat, and they work through 20 lessons on investing, credit, college costs, and building wealth, each ending with an exam.
+Students join a game with a code from their mentor, get the same play money, and trade real U.S. stocks and ETFs at real market prices. They compete on a leaderboard where the S&P 500 is the benchmark to beat, and they work through 21 lessons on investing, bonds and commodities, credit, college costs, and building wealth, each ending with an exam.
 
 The site is plain HTML, CSS, and JavaScript (no build step), so it runs on GitHub Pages like the chapter site. Accounts, games, and trades live in a free Supabase project. Prices come from Alpaca's free market data.
 
@@ -14,8 +14,8 @@ The site is plain HTML, CSS, and JavaScript (no build step), so it runs on GitHu
 - Stock pages: live price, charts (1D to 5Y, line or candles), key numbers with tap-to-define terms, company description, news, and their position
 - A full trade ticket: market, limit, stop, and stop-limit orders; day or good-'til-canceled; buy by shares or by dollar amount; a review step; and a "Why this trade?" note their mentors can read
 - Portfolio with allocation by holding or sector, orders with plain-English reasons for anything that did not fill, and a cash ledger
-- Learn: 20 lessons in four tracks (Market Basics, Building a Portfolio, Money for Life, Wealth and Legacy). Each has learning goals, numbered sections with worked examples, Investopedia videos where they fit, key terms, takeaways, mentor discussion prompts, and further reading, then an 8-question exam on its own screen (pass at 75%, retakes allowed, best score saved)
-- A glossary of more than 160 terms, and calculators for compound growth, credit card payoff, and a 50/30/20 budget
+- Learn: 21 lessons in four tracks (Market Basics, Building a Portfolio, Money for Life, Wealth and Legacy). Each has learning goals, numbered sections with worked examples, short explainer videos (mostly Investopedia) that play right in the lesson, key terms, takeaways, mentor discussion prompts, and further reading, then an 8-question exam on its own screen (pass at 75%, retakes allowed, best score saved)
+- A glossary of more than 180 terms, and calculators for compound growth, credit card payoff, and a 50/30/20 budget
 - Resources: vetted free links, including Brooklyn and NYC programs and a section on the history of Black Americans in finance (Library of Congress, Federal Reserve, OCC, Treasury, National Park Service, Smithsonian, PBS, and books)
 
 **For mentors**

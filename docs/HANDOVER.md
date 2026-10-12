@@ -15,7 +15,7 @@ Last updated October 12, 2026.
 | Database: schema, row level security, trading engine, mentor tools | Complete | 22 tests on real Postgres 18 (PGlite), including row level security checks |
 | Market edge function | Complete | 12 tests with Alpaca and Finnhub answered by test doubles |
 | Demo engine parity with SQL | Complete | 5 tests that run the same scenarios through both engines |
-| Lesson content | 20 lessons, 160 exam questions, 168 glossary terms | 6 content tests (answers, terms, HTML balance, style); facts checked October 11, 2026 |
+| Lesson content | 21 lessons, 168 exam questions, 187 glossary terms | 6 content tests (answers, terms, HTML balance, style); facts checked October 11, 2026 (bonds and commodities lesson: October 12, 2026) |
 | Hosting build (Vercel) | Complete | 4 tests: only browser files published, settings written from environment variables, secret keys refused; the demo browser test passes against the built folder |
 | Deployment | **Not deployed** | No Supabase project, Alpaca keys, or live site exist yet |
 
@@ -191,7 +191,8 @@ Students sign in anonymously. Joining binds that session to a player through the
 - Every function is `security definer` with an empty `search_path` and schema-qualified names, so a caller cannot redirect it to their own objects.
 - The function checks callers itself (JWT verification is off by design): users through `auth.getUser`, the scheduler through `x-cron-secret`. CORS can be limited with `ALLOWED_ORIGINS`.
 - Student sessions inactive for 60 days are removed by the cleanup job; the player record stays, so they can rejoin with their PIN.
-- The students are minors. Keep analytics and third-party trackers out of the student pages unless a parent-facing policy covers them. Lesson videos play on the page, but nothing loads from YouTube until a student presses Play: the page shows a plain Play button (no thumbnail, since thumbnails come from YouTube's servers), then loads YouTube's privacy-enhanced player from youtube-nocookie.com. That is the same moment the old links sent a student to YouTube, and the privacy-enhanced player stores less than youtube.com does. Each video keeps an Open on YouTube link. The demo browser test fails if a lesson page contacts YouTube before Play.
+- The students are minors. Keep analytics and third-party trackers out of the student pages unless a parent-facing policy covers them. Lesson videos play on the page, but nothing loads from YouTube until a student presses Play: the page shows a plain Play button (no thumbnail, since thumbnails come from YouTube's servers), then loads YouTube's privacy-enhanced player from youtube-nocookie.com. That is the same moment the old links sent a student to YouTube. In privacy-enhanced mode, YouTube says views are not used to personalize the viewer's YouTube experience or ads; once the player loads, Google still receives the student's IP address and the site's origin. Each video keeps an Open on YouTube link. The demo browser test fails if a lesson page contacts YouTube before Play.
+- YouTube's API terms add requirements for sites directed to children under 13 (COPPA): the site must designate itself as child-directed with Google. The program serves high school students, so this has not applied; revisit it if younger students join. The player also follows YouTube's other embed rules: it sends the site's origin as the referrer (YouTube refuses to play without one, error 153), it is at least 200 pixels tall, and nothing covers it.
 
 ---
 
@@ -259,9 +260,9 @@ Lessons are objects in the four `lessons-*.js` files:
 
 Section HTML can use `p`, `ul`, `ol`, `strong`, `table class="data-table"`, `div class="figures"`, `ol class="timeline"`, and asides: `note idea` (big idea), `note example` (worked example), `note warn` (watch out), `note try` (try it in the game), `note alpha` (Alpha connection). Exam questions are shuffled, so each must stand on its own. Then run `npm test`.
 
-### 9.2 Add an Investopedia video
+### 9.2 Add a lesson video
 
-The videos come from Investopedia's YouTube channel (youtube.com/@investopedia), mostly its "Investopedia Video" explainer series. Search YouTube for the topic plus "Investopedia," confirm the channel is Investopedia, and copy the 11-character ID from the URL. Add it to the lesson's `videos` with `source: 'Investopedia'`. Older videos can be removed by the channel, so check the links each semester (see the roadmap for an automated check).
+Most videos come from Investopedia's YouTube channel (youtube.com/@investopedia), mostly its "Investopedia Video" explainer series. Khan Academy and official channels (TreasuryDirect, the Federal Reserve, the CFTC) are good second choices. Search YouTube for the topic plus the channel name, confirm the channel, and copy the 11-character ID from the URL. Add it to the lesson's `videos` with the channel as `source` (the `yt()` helper fills in Investopedia). Videos play on the lesson page, so the uploader must allow embedding: open `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=ID&format=json`, which returns data only for public, embeddable videos. Older videos can be removed by their channel, so check the links each semester (see the roadmap for an automated check).
 
 ### 9.3 Change the pass mark or exam length
 
@@ -316,6 +317,11 @@ Write it with `security definer` and `set search_path = ''`, grant execute only 
 | Federal Reserve wealth figures (2022 survey) | Building generational wealth | Survey of Consumer Finances | Every three years; watch for the 2025 survey results |
 | Market drops table (through 2025) | Bulls, bears, and volatility | Index history | After any new bear market |
 | NYSE holidays (seeded through 2028) | `scripts/nyse-calendar.mjs`, `seed.sql` | NYSE | Extend before 2029; the weekly sync also loads the broker calendar |
+| Treasury terms (bills 4 to 52 weeks; notes 2 to 10 years; bonds 20 or 30; TIPS 5, 10, 30) | Beyond stocks | TreasuryDirect | When Treasury adds or drops a term (the 6-week bill arrived in 2025) |
+| Savings bonds ($25 minimum; $10,000 of EE and of I bonds per person a year, 2026) | Beyond stocks, glossary | TreasuryDirect | Rarely; check each fall |
+| U.S. credit ratings (Moody's Aa1 since May 2025) | Beyond stocks | Moody's, S&P, Fitch | After any rating change |
+| Currency trading (about $9.6 trillion a day, April 2025) | Beyond stocks | BIS Triennial Survey | Every three years; next survey April 2028 |
+| Crypto oversight and warnings | Beyond stocks, Spotting scams | SEC, CFTC | Changing in 2025 and 2026; check each semester |
 | Video links | Lesson `videos` | YouTube | Check each semester |
 
 ---
