@@ -895,7 +895,7 @@ export const BASICS = [
         title: 'How regular investors get in',
         html: `
 <table class="data-table">
-  <thead><tr><th>Way in</th><th>Example in this game</th><th>Watch for</th></tr></thead>
+  <thead><tr><th>Way in</th><th>Example</th><th>Watch for</th></tr></thead>
   <tbody>
     <tr><td>A bond fund</td><td>BND owns thousands of U.S. bonds</td><td>Its price falls when rates rise</td></tr>
     <tr><td>A fund that holds the metal</td><td>GLD holds gold bars in vaults</td><td>A yearly fee, and gold can swing a lot</td></tr>
