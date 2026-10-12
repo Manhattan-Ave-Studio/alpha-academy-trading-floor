@@ -19,8 +19,8 @@ function allText(lesson) {
   ].join('\n');
 }
 
-test('twenty lessons with unique ids, in known tracks', () => {
-  assert.equal(LESSONS.length, 20);
+test('21 lessons with unique ids, in known tracks', () => {
+  assert.equal(LESSONS.length, 21);
   assert.equal(new Set(LESSONS.map((l) => l.id)).size, LESSONS.length);
   for (const l of LESSONS) {
     assert.match(l.id, /^[a-z0-9-]{1,64}$/, `${l.id}: ids must fit the complete_lesson check`);

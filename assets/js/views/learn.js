@@ -55,7 +55,7 @@ export async function renderIndex() {
   const next = nextToStudy(done);
 
   const markup = html`
-    ${pageHead('Learn', `Twenty lessons in four tracks. Read a lesson, watch its videos, then take its exam on its own screen. Score ${PASS_MARK}% or better to complete it.`,
+    ${pageHead('Learn', `${LESSONS.length} lessons in four tracks. Read a lesson, watch its videos, then take its exam on its own screen. Score ${PASS_MARK}% or better to complete it.`,
       html`<a class="btn secondary" href="#/glossary">${raw(icon('book'))} Glossary</a><a class="btn secondary" href="#/tools">${raw(icon('tools'))} Calculators</a>`)}
     <section class="panel learn-hero">
       ${raw(ring(passed, LESSONS.length, `${passed}/${LESSONS.length}`, { size: 120 }))}

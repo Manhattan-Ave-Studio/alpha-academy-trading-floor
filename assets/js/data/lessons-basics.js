@@ -772,5 +772,211 @@ export const BASICS = [
         explain: `Long-term investors who held through drops have historically recovered and grown. Panic selling locks in the loss.`
       }
     ]
+  },
+  {
+    id: 'bonds-and-commodities',
+    track: 'basics',
+    title: 'Beyond stocks: bonds, commodities, and more',
+    summary: `Stocks are one market among many. Learn how bonds and commodities trade, what moves their prices, and how they fit next to stocks.`,
+    goals: [
+      `Explain how bonds work, from Treasury bills to corporate bonds, and why their prices move when interest rates change`,
+      `Describe what commodities are, how futures contracts work, and what moves commodity prices`,
+      `Compare the ways regular investors can own bonds and commodities, and the risks of each`
+    ],
+    sections: [
+      {
+        id: 'many-markets',
+        title: 'Many markets, one idea',
+        html: `
+<p>A market is anywhere buyers and sellers agree on a price. The stock market gets the most attention, but it sits beside others that are just as important, and some are much bigger.</p>
+<table class="data-table">
+  <thead><tr><th>Market</th><th>What trades</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td>Stocks</td><td>Small pieces of ownership in companies</td><td>A share of Nike</td></tr>
+    <tr><td>Bonds</td><td>Loans to governments and companies</td><td>A 10-year Treasury note</td></tr>
+    <tr><td>Commodities</td><td>Raw materials</td><td>Crude oil, gold, wheat, coffee</td></tr>
+    <tr><td>Currencies</td><td>The money of different countries</td><td>Trading dollars for euros</td></tr>
+  </tbody>
+</table>
+<p>Each answers a different question. Stocks: what is a company worth? Bonds: what does it cost to borrow? Commodities: what are raw materials worth today?</p>`
+      },
+      {
+        id: 'who-borrows',
+        title: 'Bonds: who borrows, and how',
+        html: `
+<p>A <strong>bond</strong> is a loan. When you buy one, you lend money to the issuer. The issuer pays you interest and repays the bond's face value on a set date called <strong>maturity</strong>. A bondholder is a lender, not an owner, so a bond gives you no share of the company.</p>
+<ul>
+  <li><strong>The U.S. Treasury</strong> borrows when the federal government spends more than it collects in taxes. It sells Treasury bills, notes, and bonds at auction.</li>
+  <li><strong>States and cities</strong> sell <strong>municipal bonds</strong> to pay for schools, highways, and sewer systems. New York City sells bonds to help pay for its schools and other projects.</li>
+  <li><strong>Companies</strong> sell <strong>corporate bonds</strong> to build plants, buy equipment, or grow.</li>
+</ul>
+<table class="data-table">
+  <thead><tr><th>Treasury security</th><th>Term (2026)</th><th>How it pays</th></tr></thead>
+  <tbody>
+    <tr><td>Bills</td><td>4 weeks to 52 weeks</td><td>Bought for less than face value. Your interest is the difference you get back at maturity.</td></tr>
+    <tr><td>Notes</td><td>2, 3, 5, 7, or 10 years</td><td>Fixed interest every six months</td></tr>
+    <tr><td>Bonds</td><td>20 or 30 years</td><td>Fixed interest every six months</td></tr>
+    <tr><td>TIPS</td><td>5, 10, or 30 years</td><td>Principal rises with inflation, and so does the interest</td></tr>
+  </tbody>
+</table>
+<p>Treasuries are backed by the full faith and credit of the U.S. government, which makes them some of the safest investments there are. Adults can buy them directly at TreasuryDirect.gov, starting at $100.</p>`
+      },
+      {
+        id: 'price-and-yield',
+        title: 'Price and yield: the seesaw',
+        html: `
+<p>A bond's <strong>coupon rate</strong> is set when it is issued and never changes. But bonds trade before they mature, and their prices move every day. Its <strong>yield</strong> is the interest as a percent of today's price.</p>
+<aside class="note example"><b>Worked example</b><p>A $1,000 bond pays $65 of interest a year, a 6.5% yield. If its price drops to $950, the interest is still $65, but $65 is 6.84% of $950. The price went down, so the yield went up.</p></aside>
+<p>That is the seesaw: <strong>when interest rates rise, existing bonds fall in price</strong> until their yields match new bonds. When rates fall, they rise.</p>
+<aside class="note example"><b>Worked example</b><p>You buy a 10-year, $1,000 bond paying 3%. A year later, new bonds pay 4%. No one will pay full price for your 3% bond, so its price falls to about $925. If new bonds paid 2% instead, your 3% bond would be worth about $1,082.</p></aside>
+<p>Longer bonds swing more. <strong>Duration</strong> measures it: if a bond fund's duration is 6, a 1 percentage point rise in rates lowers its price about 6%.</p>
+<p>Hold a single bond to maturity and, if the borrower pays, you get every payment and your face value back, whatever its price did along the way. A bond fund never matures, so its price keeps moving with rates.</p>`
+      },
+      {
+        id: 'credit',
+        title: 'Credit ratings: will you get paid back?',
+        html: `
+<p>The biggest risk with a corporate or city bond is <strong>default</strong>: the borrower cannot pay interest or repay on time. Rating firms such as Moody's, S&amp;P, and Fitch give bonds letter grades called <strong>credit ratings</strong>.</p>
+<ul>
+  <li><strong>Investment grade:</strong> BBB- or better at S&amp;P (Baa3 or better at Moody's). Lower risk of default.</li>
+  <li><strong>High-yield, or junk:</strong> below investment grade. These bonds pay more interest because there is a bigger chance the borrower will not pay, and they can be harder to sell.</li>
+</ul>
+<p>Even the United States has a rating. In May 2025, Moody's lowered it one notch from its top grade, Aaa, to Aa1, citing rising debt, a very high grade still. A rating is an opinion, so treat it as one clue, not the whole answer.</p>
+<p>Interest on most municipal bonds is free of federal income tax, so they usually pay less than similar corporate bonds.</p>`
+      },
+      {
+        id: 'safe-is-not-riskless',
+        title: '2022: when safe bonds fell',
+        html: `
+<p>In 2022, prices rose fast, and the Federal Reserve raised its key interest rate from near zero in March to a range of 4.25% to 4.5% by December. The seesaw did the rest.</p>
+<aside class="note warn"><b>Watch out</b><p>The Bloomberg U.S. Aggregate Bond Index, a broad measure of high-quality U.S. bonds, lost about 13% in 2022, its worst calendar year on record. Its worst year before that was 1994, when it lost about 3%. Investors in BND, the bond fund in this game, saw a similar drop.</p></aside>
+<p>The lesson: low risk is not no risk. Bonds have lost less than stocks in most bad years, which is why many people own both. But rising rates can push bond prices down, and long bonds fall the most.</p>`
+      },
+      {
+        id: 'savings-bonds',
+        title: 'Savings bonds: a way in for teens',
+        html: `
+<p><strong>Savings bonds</strong> are U.S. Treasury bonds made for individuals. They come in two kinds, sold electronically through TreasuryDirect:</p>
+<ul>
+  <li><strong>I bonds</strong> pay a fixed rate plus an inflation rate that resets every six months. New rates are announced each May 1 and November 1.</li>
+  <li><strong>EE bonds</strong> pay a fixed rate, and the Treasury guarantees they at least double in value if you hold them 20 years.</li>
+</ul>
+<p>They start at $25, and each person can buy up to $10,000 of each kind a year (2026 limits). You can cash them after a year, but before five years you give up the last three months of interest.</p>
+<aside class="note idea"><b>Under 18?</b><p>You need to be 18 to open your own TreasuryDirect account. A parent or guardian can open a minor linked account inside theirs. The bonds belong to you, the adult manages the account, and the bonds can move to your own account once you turn 18.</p></aside>`
+      },
+      {
+        id: 'commodities',
+        title: 'Commodities: the stuff everything is made of',
+        html: `
+<p>A <strong>commodity</strong> is a raw material or basic product where one unit is treated the same as another, no matter who produced it. Cotton picked in Arkansas and cotton picked in India can both become jeans.</p>
+<ul>
+  <li><strong>Energy:</strong> crude oil, natural gas</li>
+  <li><strong>Metals:</strong> gold, silver, copper</li>
+  <li><strong>Agriculture:</strong> wheat, corn, coffee, cocoa</li>
+</ul>
+<p>Prices come down to supply and demand, pushed around by weather, wars and politics, trade deals, and the economy. Bad weather in West Africa, where much of the world's cocoa grows, helped send cocoa prices sharply higher in 2023.</p>
+<aside class="note example"><b>From the barrel to the pump</b><p>A barrel of crude oil holds 42 gallons. A $1 change in the price of a barrel works out to about 2.4 cents a gallon at the gas pump, all else equal.</p></aside>`
+      },
+      {
+        id: 'futures',
+        title: 'Futures: a price today for delivery later',
+        html: `
+<p>The <strong>spot price</strong> is the price for delivery right now. Most commodity trading uses <strong>futures contracts</strong> instead: agreements to buy or sell a set amount at a set price on a set future date. The exchange sets the size, quality, and delivery place, so traders only agree on price. Futures trade on exchanges such as NYMEX and CBOT, and the Commodity Futures Trading Commission (CFTC) regulates them, not the SEC.</p>
+<ul>
+  <li><strong>Hedgers</strong> lock in prices. A farmer sells futures before harvest in case crop prices fall. A food company buys them to lock in ingredient costs.</li>
+  <li><strong>Speculators</strong> try to profit from where prices go. They take on risk hedgers want to shed, which makes trading easier for everyone.</li>
+</ul>
+<aside class="note example"><b>Worked example</b><p>Say a farmer sells corn futures at $4.50 a bushel before harvest. If corn falls to $3.50, her futures gain makes up for the lower crop price. If corn jumps to $5.50, she gives up the extra $1 a bushel. Hedging trades away upside to protect against downside.</p></aside>
+<aside class="note warn"><b>The day oil cost less than nothing</b><p>On April 20, 2020, the May crude oil futures contract was a day from expiring. Holders would have to take real oil in Cushing, Oklahoma, but storage was scarce and demand had collapsed during COVID-19. It settled at negative $37.63 a barrel: holders paid others to take it, a first since the contract began trading in 1983. Futures are promises about real stuff, and they use borrowed money, so losses can exceed what you put in.</p></aside>`
+      },
+      {
+        id: 'ways-in',
+        title: 'How regular investors get in',
+        html: `
+<table class="data-table">
+  <thead><tr><th>Way in</th><th>Example in this game</th><th>Watch for</th></tr></thead>
+  <tbody>
+    <tr><td>A bond fund</td><td>BND owns thousands of U.S. bonds</td><td>Its price falls when rates rise</td></tr>
+    <tr><td>A fund that holds the metal</td><td>GLD holds gold bars in vaults</td><td>A yearly fee, and gold can swing a lot</td></tr>
+    <tr><td>A fund that holds futures</td><td>Oil and broad commodity funds</td><td>Can drift away from the price you see quoted</td></tr>
+    <tr><td>Stocks of producers</td><td>XLE owns large U.S. energy companies</td><td>Company risks on top of commodity prices</td></tr>
+  </tbody>
+</table>
+<p>Funds that hold futures do not own the commodity. Their contracts expire, so they keep selling the old one and buying a later one, called rolling. When later contracts cost more, called <strong>contango</strong>, the fund loses a little on each roll. In 2020, several oil funds lost much of their value, and some investors learned they had owned oil futures, not oil.</p>
+<p>Other markets you will hear about: <strong>currencies</strong> trade more than anything else, about $9.6 trillion a day in April 2025. <strong>REITs</strong> own real estate such as apartments and warehouses and pay out most of their income as dividends. <strong>Crypto</strong> has no government backing and no FDIC or SIPC protection, so regulators say to risk only money you can afford to lose.</p>
+<aside class="note try"><b>Try it in the game</b><p>In <a href="#/markets">Markets</a>, open SPY, BND, and GLD and set each chart to 1Y. Which moved the most? Which held steady? Owning a mix of markets that move differently is one way to spread out risk.</p></aside>`
+      }
+    ],
+    takeaways: [
+      `Bonds are loans. Treasuries, municipal bonds, and corporate bonds pay interest and return your money at maturity if the borrower pays.`,
+      `Bond prices and yields move in opposite directions, and longer bonds swing more, as 2022 showed.`,
+      `Credit ratings estimate the chance of being paid back. Higher interest usually means higher risk.`,
+      `Commodities are raw materials priced by supply and demand. Most trade through futures, which expire and use borrowed money.`,
+      `A fund that holds the real thing behaves differently from one that holds futures. Know which you own.`
+    ],
+    discuss: [
+      `Why might a 70-year-old and a 16-year-old choose different amounts of bonds?`,
+      `A farmer hedges her corn crop, and then corn prices jump. Did hedging fail? Why might she do it again next year?`,
+      `What news this year might explain the gas prices in your neighborhood?`
+    ],
+    videos: [],
+    links: [
+      { title: 'Bonds', org: 'Investor.gov (U.S. SEC)', url: 'https://www.investor.gov/introduction-investing/investing-basics/investment-products/bonds-or-fixed-income-products/bonds' },
+      { title: 'Understanding Bond Yield and Return', org: 'FINRA', url: 'https://www.finra.org/investors/insights/bond-yield-return' },
+      { title: 'Comparing EE and I bonds', org: 'TreasuryDirect (U.S. Treasury)', url: 'https://www.treasurydirect.gov/savings-bonds/comparing-ee-and-i-bonds/' },
+      { title: 'Basics of Futures Trading', org: 'CFTC', url: 'https://www.cftc.gov/LearnAndProtect/AdvisoriesAndArticles/FuturesMarketBasics/index.htm' },
+      { title: 'Understanding Commodity Prices', org: 'Federal Reserve Bank of St. Louis', url: 'https://www.stlouisfed.org/open-vault/2025/dec/understanding-commodity-prices' }
+    ],
+    terms: ['bond', 'maturity', 'treasury-securities', 'tips', 'coupon-rate', 'yield', 'duration', 'credit-rating', 'high-yield-bond', 'municipal-bond', 'savings-bond', 'commodity', 'spot-price', 'futures-contract', 'hedging', 'contango'],
+    exam: [
+      {
+        q: `A Treasury bill does not send interest checks. How does its owner earn interest?`,
+        choices: [`By buying it for less than face value and getting the full face value at maturity`, `Through a dividend paid every quarter`, `By trading it for gold at maturity`, `Through monthly payments from a bank`],
+        answer: 0,
+        explain: `Bills sell for less than face value. The difference you get back at maturity is your interest.`
+      },
+      {
+        q: `A bond pays $65 a year in interest, and its price falls from $1,000 to $950. What happens to its yield?`,
+        choices: [`It falls below 6.5%`, `It rises to about 6.8%`, `It stays at 6.5%`, `It drops to zero`],
+        answer: 1,
+        explain: `The interest stays $65, and $65 divided by $950 is about 6.84%. Lower price, higher yield.`
+      },
+      {
+        q: `A bond fund has a duration of about 6. If interest rates rise by 1 percentage point, about how much does its price change?`,
+        choices: [`Up about 6%`, `Down about 6%`, `Down about 1%`, `It does not change`],
+        answer: 1,
+        explain: `Duration estimates the price change for a 1 point move in rates. Rates up, price down, about 6%.`
+      },
+      {
+        q: `Why do high-yield, or junk, bonds pay more interest than investment-grade bonds?`,
+        choices: [`The government guarantees them`, `There is a bigger chance the borrower will not pay`, `They always mature in one week`, `Their interest is free of all taxes`],
+        answer: 1,
+        explain: `Lenders demand more interest to make up for a higher risk of default.`
+      },
+      {
+        q: `A corn farmer sells futures contracts before harvest. What is she most likely doing?`,
+        choices: [`Hedging: locking in a price in case corn prices fall`, `Betting that corn prices will soar`, `Buying corn for her own farm`, `Avoiding taxes on her crop`],
+        answer: 0,
+        explain: `Selling futures locks in a price for her crop. She gives up extra gains if prices rise, in exchange for protection if they fall.`
+      },
+      {
+        q: `On April 20, 2020, an expiring crude oil futures contract settled at negative $37.63 a barrel. What did that mean?`,
+        choices: [`Holders paid others to take the contracts off their hands`, `Gas stations gave fuel away for free`, `The oil exchange closed for the day`, `Oil companies went out of business`],
+        answer: 0,
+        explain: `The contract was about to require delivery of real oil, storage was nearly full, and demand had collapsed, so some holders paid to get out.`
+      },
+      {
+        q: `A fund that holds oil futures keeps selling expiring contracts and buying later ones that cost more. What tends to happen?`,
+        choices: [`It loses a little on each roll and can lag the price of oil`, `It earns extra profit on each roll`, `It tracks the price of oil exactly`, `Its price can never fall`],
+        answer: 0,
+        explain: `Buying later contracts that cost more, called contango, creates a small loss on each roll.`
+      },
+      {
+        q: `A 15-year-old wants to own I bonds. How can she do it?`,
+        choices: [`A parent or guardian opens a minor linked account inside their TreasuryDirect account`, `She opens her own TreasuryDirect account`, `She buys them at any gas station`, `Teens cannot own savings bonds`],
+        answer: 0,
+        explain: `You must be 18 for your own account. Until then, an adult can hold savings bonds for you in a minor linked account.`
+      }
+    ]
   }
 ];
