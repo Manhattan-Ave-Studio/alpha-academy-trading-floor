@@ -8,16 +8,18 @@ The full handover is `docs/HANDOVER.md`. Read it before any change bigger than a
 
 - Built and tested; **not deployed**. No Supabase project, Alpaca keys, or live site exist yet. The README's "Go live" section has the nine setup steps.
 - With no Supabase settings in `config.js`, the site runs in demo mode: a simulated market and sample classmates in the browser, saved to localStorage.
+- Hosting is Vercel. `vercel.json` runs `scripts/build-site.mjs`, which publishes only the browser files and writes the Supabase settings from Vercel's environment variables into the published `config.js`.
 
 ## Commands
 
 ```bash
 npm install          # test tools only; the site has no runtime dependencies and no build step
-npm test             # 45 tests: SQL on PGlite, edge function, demo engine parity, lesson content
+npm test             # 49 tests: SQL on PGlite, edge function, demo engine parity, lesson content, hosting build
 npm run dev          # http://localhost:5173
 npm run test:e2e     # demo browser smoke test; needs npm run dev running
 npm run test:live    # live mode end to end against a local Supabase stand-in on :5174
 npm run build:preview  # dist/preview.html, the demo as one file
+npm run build:site   # dist/site, what Vercel publishes; reads SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY
 npm run seed         # regenerate supabase/seed.sql after editing assets/js/data/universe.js
 ```
 
@@ -35,6 +37,7 @@ Browser tests: `SCREENSHOTS=dir` saves screenshots at phone and desktop widths; 
 
 ## Rules that are easy to break
 
+- **Keep `config.js` in demo mode.** Live Supabase settings come from Vercel's environment variables at build time. Committed live values would point local development and CI's browser tests at real student data.
 - **Hash routing.** Routes are `#/path`. An in-page link like `href="#section"` navigates away. Use a button with `data-goto` and `scrollIntoView`, as `views/learn.js` does.
 - **Views** return `{ html, mount(el) }`; `mount` may return a cleanup function or `{ tick, destroy }`. Clear intervals and observers in cleanup.
 - **Escaping.** The `html` tagged template escapes every value. `raw()` is for trusted markup only (lesson HTML, icons, charts). Never pass names, notes, or any user text to `raw()`.

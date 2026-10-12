@@ -48,7 +48,7 @@ Plan on about 45 minutes. You will create three free accounts, run some SQL, dep
 ```
  Students' phones and laptops
             |
-   GitHub Pages (this folder)
+   Vercel: the static site
             |
    Supabase: Postgres + Auth  <---- every minute ----  pg_cron
             |                                            |
@@ -136,21 +136,38 @@ select * from public.app_status;
 
 ### 7. Point the site at Supabase
 
-Edit `config.js`:
+The site needs two values from Supabase (Project Settings, then API): the **Project URL** and the **publishable key**. Both are safe to publish. Row level security in the database decides what each person can read, and every change goes through checked database functions.
 
-```js
-supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
-supabaseKey: 'YOUR-PUBLISHABLE-KEY',
-publicUrl: 'https://gil1906.org/trading/',
-```
+- **On Vercel (step 8):** leave `config.js` as it is and add these as environment variables on the Vercel project, for Production only:
 
-Both values are safe to publish. Row level security in the database decides what each person can read, and every change goes through checked database functions.
+  | Name | Value |
+  | --- | --- |
+  | `SUPABASE_URL` | Project URL, like `https://abcdefgh.supabase.co` |
+  | `SUPABASE_PUBLISHABLE_KEY` | Publishable key (the anon key also works) |
+  | `PUBLIC_URL` | Optional: the site's address, like `https://trading.gil1906.org/`, for join links and QR codes. Without it, the app uses the address the mentor has open. |
+
+  The build writes them into the published `config.js`. The repository stays in demo mode, so development, tests, and Vercel's preview deployments never touch your live data. The build refuses a secret or `service_role` key, since anything in `config.js` is public.
+- **On GitHub Pages or another static host:** edit `config.js`:
+
+  ```js
+  supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
+  supabaseKey: 'YOUR-PUBLISHABLE-KEY',
+  publicUrl: 'https://gil1906.org/trading/',
+  ```
 
 ### 8. Publish the site
 
-This folder is the whole site. Two good options:
+**Vercel (recommended).**
 
-- **Its own repository (recommended).** Push this folder to a new repository, for example `trading`, and turn on GitHub Pages (Settings, then Pages, deploy from the `main` branch, root folder). If the chapter's GitHub account already serves gil1906.org as its main Pages site, a repository named `trading` appears at `https://gil1906.org/trading/` automatically. Otherwise, add a custom subdomain like `trading.gil1906.org` with a CNAME record at Namecheap.
+1. In Vercel, choose **Add New**, then **Project**, and import this repository. Keep the settings it shows: `vercel.json` skips the install, builds with `scripts/build-site.mjs` (which copies only the files the browser loads into `dist/site`), and publishes that folder.
+2. Add the environment variables from step 7 under **Settings**, then **Environment Variables**, and redeploy.
+3. Add a domain under **Settings**, then **Domains**, for example `trading.gil1906.org`, and create the DNS record Vercel shows at your domain registrar. Then set the market function's `ALLOWED_ORIGINS` secret (step 5) to that address.
+
+Vercel's free Hobby plan deploys public repositories, and private repositories that belong to a personal GitHub account. A private repository owned by a GitHub organization needs Vercel Pro, or a public repository.
+
+**GitHub Pages.** This folder is the whole site, served as is. Two options:
+
+- **Its own repository.** Push this folder to a new repository, for example `trading`, and turn on GitHub Pages (Settings, then Pages, deploy from the `main` branch, root folder). If the chapter's GitHub account already serves gil1906.org as its main Pages site, a repository named `trading` appears at `https://gil1906.org/trading/` automatically. Otherwise, add a custom subdomain like `trading.gil1906.org` with a CNAME record at Namecheap.
 - **Inside the chapter site repository.** Copy this folder in as `trading/` on a branch and open a pull request, following the usual branch and PR flow.
 
 Keep the `vendor/` folder; it holds the Supabase client and the QR code library so the site does not depend on outside script hosts. `node_modules/`, `tests/`, and `scripts/` are only for development.
@@ -195,10 +212,11 @@ Notes:
 
 ```bash
 npm install            # test tools only; the site itself has no dependencies
-npm test               # 45 tests: database rules (real Postgres via PGlite), the market function, the demo engine, and lesson content
+npm test               # 49 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, and the hosting build
 npm run test:e2e       # browser smoke test of every page at phone and desktop widths (needs `npm run dev` running and `npx playwright install chromium`)
 npm run test:live      # live mode in a real browser against a local stand-in for Supabase (mentor signup, new game, join, trades, rejoin, roster)
 npm run build:preview  # single-file demo for sharing a preview link
+npm run build:site     # the folder Vercel publishes (dist/site), with Supabase settings from SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY
 npm run vendor         # refresh vendor/ from node_modules
 ```
 
@@ -224,6 +242,7 @@ GitHub Actions runs all of these tests on every pull request and every merge to 
 
 ```
 index.html, config.js          the site
+vercel.json                    Vercel settings: build with scripts/build-site.mjs, publish dist/site
 assets/css/app.css             design tokens and components
 assets/js/app.js               shell, routing, live price loop
 assets/js/views/               pages
