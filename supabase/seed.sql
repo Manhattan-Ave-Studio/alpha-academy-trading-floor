@@ -95,6 +95,7 @@ insert into public.symbols (symbol, name, asset_type, sector, blurb, featured, c
   ('VXUS', 'Vanguard Total International Stock ETF', 'etf', 'Fund', 'Owns thousands of companies outside the U.S.', true, array['etfs']::text[]),
   ('SCHD', 'Schwab U.S. Dividend Equity ETF', 'etf', 'Fund', 'Owns about 100 U.S. companies with strong records of paying dividends.', true, array['etfs']::text[]),
   ('BND', 'Vanguard Total Bond Market ETF', 'etf', 'Fund', 'Owns thousands of U.S. government and corporate bonds. Much steadier than stocks.', true, array['etfs']::text[]),
+  ('GLD', 'SPDR Gold Shares', 'etf', 'Fund', 'Holds gold bars in vaults, so its price follows the price of gold, minus a small yearly fee.', true, array['etfs']::text[]),
   ('XLK', 'Technology Select Sector SPDR Fund', 'etf', 'Fund', 'Owns the technology companies in the S&P 500.', true, array['etfs']::text[]),
   ('XLF', 'Financial Select Sector SPDR Fund', 'etf', 'Fund', 'Owns the banks, insurers, and payment companies in the S&P 500.', true, array['etfs']::text[]),
   ('XLV', 'Health Care Select Sector SPDR Fund', 'etf', 'Fund', 'Owns the health care companies in the S&P 500.', true, array['etfs']::text[]),

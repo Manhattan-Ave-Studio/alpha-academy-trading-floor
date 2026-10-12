@@ -10,6 +10,7 @@
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { takeExam } from '../support/exam.mjs';
+import { lessonById } from '../../assets/js/data/lessons.js';
 
 const BASE = process.env.BASE_URL || 'http://localhost:5173/';
 const SHOTS = process.env.SCREENSHOTS || '';
@@ -45,12 +46,19 @@ async function session(name, viewport, colorScheme, device = {}) {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
+  // Lesson videos must not contact YouTube until a student presses Play. Record any request that does,
+  // and answer YouTube with an empty page so the test never leaves this machine.
+  const youtube = [];
+  page.on('request', (r) => {
+    if (/youtube|ytimg|googlevideo/.test(new URL(r.url()).hostname)) youtube.push(r.url());
+  });
+  await page.route(/youtube-nocookie\.com|youtube\.com|ytimg\.com|googlevideo\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '' }));
   await page.route(/fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net/, (route) => {
     const url = route.request().url();
     if (FONT_CSS && url.includes('fonts.googleapis.com')) return route.fulfill({ status: 200, contentType: 'text/css', body: FONT_CSS });
     return route.fulfill({ status: 200, contentType: url.includes('.css') || url.includes('css2') ? 'text/css' : 'text/javascript', body: '' });
   });
-  return { ctx, page, errors, name };
+  return { ctx, page, errors, name, youtube };
 }
 
 // Options in a row of chips or segmented buttons that sit past the visible edge of the row or its
@@ -127,6 +135,23 @@ for (const [name, viewport, scheme] of [
     const after = await s.page.$$eval('[data-cancel]', (els) => els.length);
     if (after !== before - 1) failures.push(`cancel: expected ${before - 1} open orders, saw ${after}`);
 
+    // Lesson videos: nothing loads from YouTube until Play, then the privacy-enhanced player appears in place.
+    const lesson = lessonById('order-types');
+    s.youtube.length = 0;
+    await s.page.goto(BASE + '#/learn/order-types');
+    await s.page.waitForSelector('[data-play]');
+    await s.page.waitForTimeout(500);
+    if (s.youtube.length) failures.push(`lesson videos: YouTube contacted before Play: ${s.youtube.join(', ')}`);
+    const links = await s.page.$$eval('.video figcaption a', (as) => as.map((a) => a.href));
+    if (links.length !== lesson.videos.length) failures.push(`lesson videos: expected ${lesson.videos.length} "Open on YouTube" links, saw ${links.length}`);
+    await s.page.click('[data-play="0"]');
+    const player = await s.page.waitForSelector('.video iframe');
+    const src = await player.getAttribute('src');
+    if (!src.startsWith(`https://www.youtube-nocookie.com/embed/${lesson.videos[0].youtube}?`)) failures.push(`lesson videos: unexpected player address ${src}`);
+    if ((await player.getAttribute('title')) !== lesson.videos[0].title) failures.push('lesson videos: the player needs the video title');
+    if (await s.page.$('[data-play="0"]')) failures.push('lesson videos: the Play button should give way to the player');
+    if (SHOTS) await s.page.locator('#watch').screenshot({ path: `${SHOTS}/${name}-lesson-video.png` });
+
     // Lesson exam on its own screen: a failing attempt, then a passing one that saves progress.
     await s.page.goto(BASE + '#/learn/order-types/exam');
     const miss = await takeExam(s.page, 'order-types', { wrong: 3 });
@@ -195,4 +220,4 @@ if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, lesson exams, and a touch phone`);
+console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, lesson exams, lesson videos, and a touch phone`);

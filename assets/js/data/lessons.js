@@ -80,3 +80,13 @@ export function correctToPass(lesson) {
 export function videoUrl(v) {
   return v.youtube ? `https://www.youtube.com/watch?v=${v.youtube}` : v.url;
 }
+
+/**
+ * The address for YouTube's privacy-enhanced player (youtube-nocookie.com), or null for a video
+ * that is not on YouTube. The lesson reader loads it only after a student presses Play, so nothing
+ * reaches YouTube before that.
+ */
+export function videoEmbedUrl(v) {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(v.youtube || '')) return null;
+  return `https://www.youtube-nocookie.com/embed/${v.youtube}?autoplay=1&playsinline=1&rel=0`;
+}

@@ -47,7 +47,7 @@ Browser tests: `SCREENSHOTS=dir` saves screenshots at phone and desktop widths; 
 - **Pass mark** is 75 in two places: `PASS_MARK` in `assets/js/data/lessons.js` and `x.score >= 75` in `game_roster` (`20261011000400_people.sql`). Change both.
 - **Exams shuffle** question and choice order, so every question must stand alone. Each exam has exactly 8 questions.
 - **Lesson terms** must exist in `glossary.js`; `npm test` checks this along with exam answers, HTML balance, and dashes.
-- **Students are minors.** No analytics, trackers, or embedded media on student pages. Videos are links that open YouTube in a new tab.
+- **Students are minors.** No analytics or trackers on student pages. Lesson videos play on the page through YouTube's privacy-enhanced player (youtube-nocookie.com), loaded only when a student presses Play: no thumbnails or player before that, and an Open on YouTube link beside each. `npm run test:e2e` fails if a lesson page contacts YouTube before Play.
 - **Styling** comes from tokens at the top of `assets/css/app.css` (dark first, full light theme). One typeface, Outfit, through `--font-display`, `--font-body`, `--font-data`. Old gold is `#cfb53b`; use `--gold-text` for gold text. Tabular figures for numbers that line up. `[hidden]` is forced to `display: none`.
 
 ## Copy style
