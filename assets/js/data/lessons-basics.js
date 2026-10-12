@@ -189,7 +189,7 @@ export const BASICS = [
         title: 'Brokers: your way in',
         html: `
 <p>You trade through a <strong>broker</strong>, a firm such as Fidelity, Schwab, or Vanguard, which holds your account and sends your orders to the market. Most large brokers charge no commission for online stock trades.</p>
-<p>People under 18 can invest through a <strong>custodial account</strong> that a parent or guardian opens and manages with them. Lesson 16 covers how.</p>
+<p>People under 18 can invest through a <strong>custodial account</strong> that a parent or guardian opens and manages with them. The lesson Investing accounts in real life covers how.</p>
 <p>If a brokerage firm itself fails, the <strong>Securities Investor Protection Corporation (SIPC)</strong> protects each customer's account up to $500,000, including up to $250,000 in cash. SIPC steps in when a firm fails. The ups and downs of your investments remain yours to manage.</p>`
       },
       {
@@ -239,7 +239,7 @@ export const BASICS = [
     <tr><td>Nasdaq Composite</td><td>Thousands of stocks listed on Nasdaq, heavy in technology</td><td>Bigger companies count more</td></tr>
   </tbody>
 </table>
-<p>Professionals treat the S&amp;P 500 as "the market" because it covers about 80% of the value of U.S. stocks. You cannot buy an index itself, but you can buy a fund that copies it. Lesson 8 shows how.</p>`
+<p>Professionals treat the S&amp;P 500 as "the market" because it covers about 80% of the value of U.S. stocks. You cannot buy an index itself, but you can buy a fund that copies it. The lesson Index funds and ETFs shows how.</p>`
       },
       {
         id: 'rules',

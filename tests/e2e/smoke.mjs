@@ -10,6 +10,7 @@
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { takeExam } from '../support/exam.mjs';
+import { lessonById } from '../../assets/js/data/lessons.js';
 
 const BASE = process.env.BASE_URL || 'http://localhost:5173/';
 const SHOTS = process.env.SCREENSHOTS || '';
@@ -45,12 +46,19 @@ async function session(name, viewport, colorScheme, device = {}) {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
+  // Lesson videos must not contact YouTube until a student presses Play. Record any request that does,
+  // and answer YouTube with an empty page so the test never leaves this machine.
+  const youtube = [];
+  page.on('request', (r) => {
+    if (/youtube|ytimg|googlevideo/.test(new URL(r.url()).hostname)) youtube.push(r.url());
+  });
+  await page.route(/youtube-nocookie\.com|youtube\.com|ytimg\.com|googlevideo\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '' }));
   await page.route(/fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net/, (route) => {
     const url = route.request().url();
     if (FONT_CSS && url.includes('fonts.googleapis.com')) return route.fulfill({ status: 200, contentType: 'text/css', body: FONT_CSS });
     return route.fulfill({ status: 200, contentType: url.includes('.css') || url.includes('css2') ? 'text/css' : 'text/javascript', body: '' });
   });
-  return { ctx, page, errors, name };
+  return { ctx, page, errors, name, youtube };
 }
 
 // Options in a row of chips or segmented buttons that sit past the visible edge of the row or its
@@ -75,6 +83,9 @@ async function visit(s, label, hash) {
   const failedText = failed ? await failed.textContent() : '';
   if (/did not load/.test(failedText || '')) failures.push(`${s.name} ${label}: ${failedText}`);
   for (const option of await s.page.evaluate(clippedOptions)) failures.push(`${s.name} ${label}: cut off: ${option}`);
+  const early = await s.page.$$eval('link[href], img[src], iframe[src], script[src], source[src], video[src]', (els) =>
+    els.map((e) => e.href || e.src).filter((u) => /youtube|ytimg|googlevideo/.test(new URL(u, location.href).hostname)));
+  if (early.length) failures.push(`${s.name} ${label}: YouTube address on the page before Play: ${early.join(', ')}`);
   if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${s.name}-${label}.png`, fullPage: label === 'home' || label === 'stock' });
 }
 
@@ -84,6 +95,7 @@ for (const [name, viewport, scheme] of [
 ]) {
   const s = await session(name, viewport, scheme);
   for (const [label, hash] of ROUTES) await visit(s, label, hash);
+  if (s.youtube.length) failures.push(`${name}: YouTube contacted before Play: ${s.youtube.join(', ')}`);
 
   // Mentor panel (demo opens without a login)
   await s.page.goto(BASE + '#/mentor');
@@ -126,6 +138,28 @@ for (const [name, viewport, scheme] of [
     await s.page.waitForTimeout(600);
     const after = await s.page.$$eval('[data-cancel]', (els) => els.length);
     if (after !== before - 1) failures.push(`cancel: expected ${before - 1} open orders, saw ${after}`);
+
+    // Lesson videos: nothing loads from YouTube until Play, then the privacy-enhanced player appears in place.
+    const lesson = lessonById('order-types');
+    s.youtube.length = 0;
+    await s.page.goto(BASE + '#/learn/order-types');
+    await s.page.waitForSelector('[data-play]');
+    await s.page.locator('#watch').scrollIntoViewIfNeeded();
+    await s.page.waitForTimeout(500);
+    if (s.youtube.length) failures.push(`lesson videos: YouTube contacted before Play: ${s.youtube.join(', ')}`);
+    const links = await s.page.$$eval('.video figcaption a', (as) => as.map((a) => a.href));
+    if (links.length !== lesson.videos.length) failures.push(`lesson videos: expected ${lesson.videos.length} "Open on YouTube" links, saw ${links.length}`);
+    const embed = s.page.waitForRequest(/youtube-nocookie\.com\/embed\//);
+    await s.page.click('[data-play="0"]');
+    // YouTube refuses to play (error 153) unless the player request names the site in its Referer.
+    const referer = (await embed).headers()['referer'] || '';
+    if (referer !== new URL(BASE).origin + '/') failures.push(`lesson videos: the player must send the site's origin as the Referer, saw "${referer}"`);
+    const player = await s.page.waitForSelector('.video iframe');
+    const src = await player.getAttribute('src');
+    if (!src.startsWith(`https://www.youtube-nocookie.com/embed/${lesson.videos[0].youtube}?`)) failures.push(`lesson videos: unexpected player address ${src}`);
+    if ((await player.getAttribute('title')) !== lesson.videos[0].title) failures.push('lesson videos: the player needs the video title');
+    if (await s.page.$('[data-play="0"]')) failures.push('lesson videos: the Play button should give way to the player');
+    if (SHOTS) await s.page.locator('#watch').screenshot({ path: `${SHOTS}/${name}-lesson-video.png` });
 
     // Lesson exam on its own screen: a failing attempt, then a passing one that saves progress.
     await s.page.goto(BASE + '#/learn/order-types/exam');
@@ -186,6 +220,18 @@ for (const [name, viewport, scheme] of [
   await t.page.goto(BASE + '#/stock/AAPL');
   await t.page.waitForSelector('[data-range]');
   for (const option of await t.page.evaluate(clippedOptions)) failures.push(`phone-touch stock: cut off: ${option}`);
+  await t.page.goto(BASE + '#/learn/order-types');
+  await t.page.waitForSelector('.video-frame');
+  await t.page.click('[data-play="0"]');
+  await t.page.waitForSelector('.video iframe');
+  const vf = await t.page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth - innerWidth,
+    frame: document.querySelector('.video-frame').getBoundingClientRect().width,
+    column: document.querySelector('.lesson-body').getBoundingClientRect().width,
+    player: document.querySelector('.video iframe').getBoundingClientRect().height
+  }));
+  if (vf.overflow > 1 || vf.frame > vf.column + 1) failures.push(`phone-touch lesson: the video box (${vf.frame}px) is wider than the lesson (${vf.column}px)`);
+  if (vf.player < 200) failures.push(`phone-touch lesson: the player is ${vf.player}px tall; YouTube requires at least 200`);
   if (t.errors.length) failures.push(...t.errors.map((e) => `phone-touch console: ${e}`));
   await t.ctx.close();
 }
@@ -195,4 +241,4 @@ if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, lesson exams, and a touch phone`);
+console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, lesson exams, lesson videos, and a touch phone`);

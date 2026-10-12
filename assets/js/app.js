@@ -265,7 +265,8 @@ async function tickOnce() {
     if (isDemo()) {
       const fills = store.api.tick();
       for (const o of fills) toast(`${o.side === 'buy' ? 'Bought' : 'Sold'} ${Number(o.filled_qty).toLocaleString('en-US', { maximumFractionDigits: 4 })} ${o.symbol} at ${fmtPrice(o.filled_price)}`, 'good');
-      if (fills.length && view && !sheetIsOpen()) renderRoute(currentPath());
+      // Redraw to show the fill, unless a sheet is open or a lesson video is playing (a redraw would stop it).
+      if (fills.length && view && !sheetIsOpen() && !$('#main .video iframe')) renderRoute(currentPath());
     }
     const onScreen = [...new Set($$('#main [data-q], .sheet [data-q]').map((el) => el.dataset.q))];
     const featured = store.featured.map((f) => f.symbol);

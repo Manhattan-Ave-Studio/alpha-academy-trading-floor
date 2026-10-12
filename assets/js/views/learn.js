@@ -6,7 +6,7 @@ import { etWhen } from '../lib/format.js';
 import { store, playerId } from '../state.js';
 import {
   TRACKS, LESSONS, PASS_MARK, lessonById, lessonsForTrack, lessonNumber, nextLesson, prevLesson,
-  isPassed, passedCount, nextToStudy, correctToPass, videoUrl
+  isPassed, passedCount, nextToStudy, correctToPass, videoUrl, videoEmbedUrl
 } from '../data/lessons.js';
 import { GLOSSARY, glossaryList } from '../data/glossary.js';
 import { pageHead, footer, empty } from './common.js';
@@ -55,7 +55,7 @@ export async function renderIndex() {
   const next = nextToStudy(done);
 
   const markup = html`
-    ${pageHead('Learn', `Twenty lessons in four tracks. Read a lesson, watch its videos, then take its exam on its own screen. Score ${PASS_MARK}% or better to complete it.`,
+    ${pageHead('Learn', `${LESSONS.length} lessons in four tracks. Read a lesson, watch its videos, then take its exam on its own screen. Score ${PASS_MARK}% or better to complete it.`,
       html`<a class="btn secondary" href="#/glossary">${raw(icon('book'))} Glossary</a><a class="btn secondary" href="#/tools">${raw(icon('tools'))} Calculators</a>`)}
     <section class="panel learn-hero">
       ${raw(ring(passed, LESSONS.length, `${passed}/${LESSONS.length}`, { size: 120 }))}
@@ -167,12 +167,23 @@ export async function renderLesson({ params }) {
 
         ${lesson.videos.length ? html`<section class="lesson-section" id="watch" data-section aria-labelledby="h-watch">
           <h2 id="h-watch">Watch</h2>
-          <p class="muted">Short explainers that go with this lesson. Videos open in a new tab.</p>
-          <div class="video-grid">${lesson.videos.map((v) => html`<a class="video-card" href="${videoUrl(v)}" target="_blank" rel="noopener noreferrer">
-            <span class="play">${raw(icon('play'))}</span>
-            <span class="v-body"><b>${v.title}</b><span class="v-src">${v.source}${v.youtube ? ' on YouTube' : ''}${v.note ? `. ${v.note}` : ''}</span></span>
-            ${raw(icon('external', 'v-ext'))}
-          </a>`)}</div>
+          <p class="muted">Short explainers that go with this lesson. Press play to watch here. Nothing loads from YouTube until you do.</p>
+          <div class="video-list">${lesson.videos.map((v, i) => videoEmbedUrl(v)
+            ? html`<figure class="video">
+                <div class="video-frame">
+                  <button class="video-start" type="button" data-play="${i}" aria-label="Play video: ${v.title}">
+                    <span class="play">${raw(icon('playSolid'))}</span>
+                    <span class="v-title">${v.title}</span>
+                    <span class="v-hint">Plays here</span>
+                  </button>
+                </div>
+                <figcaption><span>${v.source}${v.note ? `. ${v.note}` : ''}</span><a href="${videoUrl(v)}" target="_blank" rel="noopener noreferrer">Open on YouTube<span class="sr-only">: ${v.title}</span>${raw(icon('external', 'v-ext'))}</a></figcaption>
+              </figure>`
+            : html`<a class="video-card" href="${videoUrl(v)}" target="_blank" rel="noopener noreferrer">
+                <span class="play">${raw(icon('play'))}</span>
+                <span class="v-body"><b>${v.title}</b><span class="v-src">${v.source}${v.note ? `. ${v.note}` : ''}. Opens in a new tab.</span></span>
+                ${raw(icon('external', 'v-ext'))}
+              </a>`)}</div>
         </section>` : ''}
 
         <section class="lesson-section" id="terms" data-section aria-labelledby="h-terms">
@@ -220,7 +231,29 @@ export async function renderLesson({ params }) {
       const article = $('.lesson-body', el);
       const tocButtons = $$('[data-goto]', el);
 
+      // Swap a video's Play button for YouTube's privacy-enhanced player. Built with DOM calls, not
+      // markup strings, and only after the click, so nothing loads from YouTube before a student chooses.
+      const startVideo = (button) => {
+        const v = lesson.videos[Number(button.dataset.play)];
+        const src = v && videoEmbedUrl(v);
+        if (!src) return;
+        const player = document.createElement('iframe');
+        player.src = src;
+        player.title = v.title;
+        player.allow = 'autoplay; encrypted-media; picture-in-picture; web-share';
+        player.allowFullscreen = true;
+        // YouTube refuses to play embeds that send no referrer, so keep the browser default.
+        player.referrerPolicy = 'strict-origin-when-cross-origin';
+        button.replaceWith(player);
+        player.focus();
+      };
+
       const onClick = (e) => {
+        const play = e.target.closest('[data-play]');
+        if (play) {
+          startVideo(play);
+          return;
+        }
         const b = e.target.closest('[data-goto]');
         if (!b) return;
         const target = el.querySelector('#' + b.dataset.goto);

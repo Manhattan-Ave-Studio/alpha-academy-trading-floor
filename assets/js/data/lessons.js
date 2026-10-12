@@ -14,7 +14,7 @@ export const PASS_MARK = 75;
 
 export const TRACKS = [
   { id: 'basics', title: 'Market Basics', blurb: 'How stocks, exchanges, quotes, and orders work.', icon: 'markets' },
-  { id: 'portfolio', title: 'Building a Portfolio', blurb: 'Risk, diversification, funds, research, and the mindset of a long-term investor.', icon: 'portfolio' },
+  { id: 'portfolio', title: 'Building a Portfolio', blurb: 'Risk, diversification, funds, bonds and commodities, research, and the mindset of a long-term investor.', icon: 'portfolio' },
   { id: 'life', title: 'Money for Life', blurb: 'Compounding, paychecks, banking, credit, college, real accounts, and scams.', icon: 'tools' },
   { id: 'legacy', title: 'Wealth and Legacy', blurb: 'Generational wealth, the builders who came before you, and careers in finance.', icon: 'ranks' }
 ];
@@ -79,4 +79,14 @@ export function correctToPass(lesson) {
 
 export function videoUrl(v) {
   return v.youtube ? `https://www.youtube.com/watch?v=${v.youtube}` : v.url;
+}
+
+/**
+ * The address for YouTube's privacy-enhanced player (youtube-nocookie.com), or null for a video
+ * that is not on YouTube. The lesson reader loads it only after a student presses Play, so nothing
+ * reaches YouTube before that.
+ */
+export function videoEmbedUrl(v) {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(v.youtube || '')) return null;
+  return `https://www.youtube-nocookie.com/embed/${v.youtube}?autoplay=1&playsinline=1&rel=0`;
 }

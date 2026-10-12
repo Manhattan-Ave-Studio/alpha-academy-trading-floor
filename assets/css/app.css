@@ -1031,7 +1031,6 @@ table.data-table, .table {
 .timeline li span { padding-left: 22px; }
 .timeline li::marker { content: none; }
 
-.video-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
 .video-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; }
 .video-card:hover { border-color: var(--gold); color: var(--text); }
 .video-card .play { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--on-gold); }
@@ -1039,6 +1038,40 @@ table.data-table, .table {
 .video-card .v-body { display: grid; gap: 2px; min-width: 0; }
 .video-card .v-src { color: var(--muted); font-size: var(--step--1); }
 .video-card .v-ext { width: 16px; height: 16px; color: var(--faint); }
+
+/* Lesson videos: a Play button that becomes YouTube's player on the page. No thumbnail, since
+   loading one would contact YouTube before the student chooses to watch. */
+.video-list { display: grid; gap: 22px; }
+.video { margin: 0; display: grid; gap: 8px; }
+/* YouTube's terms set a 200 by 200 pixel minimum for the player. 202px leaves 200 inside the 1px border, so narrow
+   phones get a taller box. The explicit width keeps the minimum height from widening the box past the column. */
+.video-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 202px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: #0f0e0b; }
+.video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-start {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 20px;
+  border: 0;
+  cursor: pointer;
+  text-align: center;
+  color: #f3edde;
+  background: radial-gradient(120% 90% at 50% 40%, rgba(207, 181, 59, 0.2), transparent 60%), #15130c;
+}
+.video-start .play { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--on-gold); transition: transform 0.15s ease; }
+.video-start .play svg { width: 30px; height: 30px; }
+.video-start .v-title { font-family: var(--font-display); font-size: var(--step-1); font-weight: 600; max-width: 34ch; line-height: 1.25; }
+.video-start .v-hint { font-size: var(--step--1); color: #a8a088; }
+.video-start:hover .play, .video-start:focus-visible .play { transform: scale(1.06); }
+.video-start:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) { .video-start .play { transition: none; } }
+.video figcaption { display: flex; justify-content: space-between; align-items: center; gap: 6px 14px; flex-wrap: wrap; color: var(--muted); font-size: var(--step--1); }
+.video figcaption a { display: inline-flex; align-items: center; gap: 6px; }
+.video figcaption .v-ext { width: 14px; height: 14px; }
 
 .term-grid { margin: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
 .term-grid div { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }

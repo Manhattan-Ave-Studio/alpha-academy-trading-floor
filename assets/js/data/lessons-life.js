@@ -94,7 +94,7 @@ export const LIFE = [
 <p>The same math works against you in three ways:</p>
 <ul>
   <li><strong>Debt:</strong> a credit card balance at 24% doubles in about three years if you never pay it.</li>
-  <li><strong>Fees:</strong> a 1% yearly fee on $10,000 over 30 years costs about $18,000 at a 7% return, as lesson 8 showed.</li>
+  <li><strong>Fees:</strong> a 1% yearly fee on $10,000 over 30 years costs about $18,000 at a 7% return, as the Index funds and ETFs lesson showed.</li>
   <li><strong>Inflation:</strong> at 3% a year, prices double in about 24 years.</li>
 </ul>`
       },
@@ -389,7 +389,7 @@ export const LIFE = [
         title: 'Banks built by the community',
         html: `
 <p>Black Americans have built banks for more than a century to serve neighborhoods that other banks ignored. In New York City, <strong>Carver Federal Savings Bank</strong> opened in Harlem in 1948 to help Black New Yorkers get mortgages and banking services, and it opened a branch in Bedford-Stuyvesant in 1961. Today the <strong>National Bankers Association</strong> represents Black-owned and other minority-owned banks across the country. Regulators call these banks minority depository institutions.</p>
-<p>Where you bank is also a decision about your community. Lesson 19 covers this history.</p>`
+<p>Where you bank is also a decision about your community. The lesson Pioneers of Black finance covers this history.</p>`
       },
       {
         id: 'under-18',

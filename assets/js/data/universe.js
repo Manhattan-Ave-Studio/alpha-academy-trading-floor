@@ -130,6 +130,7 @@ export const UNIVERSE = [
   { symbol: 'VXUS', name: 'Vanguard Total International Stock ETF', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Owns thousands of companies outside the U.S.', demo: [70, 0.15] },
   { symbol: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Owns about 100 U.S. companies with strong records of paying dividends.', demo: [28, 0.14] },
   { symbol: 'BND', name: 'Vanguard Total Bond Market ETF', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Owns thousands of U.S. government and corporate bonds. Much steadier than stocks.', demo: [74, 0.05] },
+  { symbol: 'GLD', name: 'SPDR Gold Shares', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Holds gold bars in vaults, so its price follows the price of gold, minus a small yearly fee.', demo: [370, 0.15] },
   { symbol: 'XLK', name: 'Technology Select Sector SPDR Fund', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Owns the technology companies in the S&P 500.', demo: [270, 0.22] },
   { symbol: 'XLF', name: 'Financial Select Sector SPDR Fund', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Owns the banks, insurers, and payment companies in the S&P 500.', demo: [52, 0.18] },
   { symbol: 'XLV', name: 'Health Care Select Sector SPDR Fund', type: 'etf', sector: 'Fund', collections: ['etfs'], blurb: 'Owns the health care companies in the S&P 500.', demo: [140, 0.15] },
