@@ -192,7 +192,7 @@ Students sign in anonymously. Joining binds that session to a player through the
 - The function checks callers itself (JWT verification is off by design): users through `auth.getUser`, the scheduler through `x-cron-secret`. CORS can be limited with `ALLOWED_ORIGINS`.
 - Student sessions inactive for 60 days are removed by the cleanup job; the player record stays, so they can rejoin with their PIN.
 - The students are minors. Keep analytics and third-party trackers out of the student pages unless a parent-facing policy covers them. Lesson videos play on the page, but nothing loads from YouTube until a student presses Play: the page shows a plain Play button (no thumbnail, since thumbnails come from YouTube's servers), then loads YouTube's privacy-enhanced player from youtube-nocookie.com. That is the same moment the old links sent a student to YouTube. In privacy-enhanced mode, YouTube says views are not used to personalize the viewer's YouTube experience or ads; once the player loads, Google still receives the student's IP address and the site's origin. Each video keeps an Open on YouTube link. The demo browser test fails if a lesson page contacts YouTube before Play.
-- YouTube's API terms add requirements for sites directed to children under 13 (COPPA): the site must designate itself as child-directed with Google. The program serves high school students, so this has not applied; revisit it if younger students join. The player also follows YouTube's other embed rules: it sends the site's origin as the referrer (YouTube refuses to play without one, error 153), it is at least 200 pixels tall, and nothing covers it.
+- YouTube's API terms have extra rules for sites directed to children under 13 (COPPA), including telling Google the site is child-directed. The program serves high school students, so this has not come up; read YouTube's current developer policies if younger students ever join. The player also follows YouTube's other embed rules: it sends the site's origin as the referrer (YouTube refuses to play without one, error 153), it is at least 200 pixels tall, and nothing covers it.
 
 ---
 
@@ -320,9 +320,9 @@ Write it with `security definer` and `set search_path = ''`, grant execute only 
 | Treasury terms (bills 4 to 52 weeks; notes 2 to 10 years; bonds 20 or 30; TIPS 5, 10, 30) | Beyond stocks | TreasuryDirect | When Treasury adds or drops a term (the 6-week bill arrived in 2025) |
 | Savings bonds ($25 minimum; $10,000 of EE and of I bonds per person a year, 2026) | Beyond stocks, glossary | TreasuryDirect | Rarely; check each fall |
 | U.S. credit ratings (Moody's Aa1 since May 2025) | Beyond stocks | Moody's, S&P, Fitch | After any rating change |
-| Currency trading (about $9.6 trillion a day, April 2025) | Beyond stocks | BIS Triennial Survey | Every three years; next survey April 2028 |
+| Currency trading (about $9.5 trillion a day, April 2025) | Beyond stocks | BIS Triennial Survey (December 2025 Quarterly Review figure; the September 2025 preliminary release said $9.6 trillion) | Every three years; next survey April 2028 |
 | Crypto oversight and warnings | Beyond stocks, Spotting scams | SEC, CFTC | Changing in 2025 and 2026; check each semester |
-| Video links | Lesson `videos` | YouTube | Check each semester |
+| Video links | Lesson `videos` | YouTube | Check each semester. The bonds and commodities videos (WQhowJQoIag, mS7t91U9Qqg, 3g6P0lRXotI) were confirmed by ID, title, and channel on October 12, 2026, but their embedding could not be tested from the build environment |
 
 ---
 

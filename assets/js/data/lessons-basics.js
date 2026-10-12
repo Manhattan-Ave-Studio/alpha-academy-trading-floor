@@ -819,7 +819,7 @@ export const BASICS = [
     <tr><td>TIPS</td><td>5, 10, or 30 years</td><td>Principal rises with inflation, and so does the interest</td></tr>
   </tbody>
 </table>
-<p>Treasuries are backed by the full faith and credit of the U.S. government, which makes them some of the safest investments there are. Adults can buy them directly at TreasuryDirect.gov, starting at $100.</p>`
+<p>Treasuries are backed by the full faith and credit of the U.S. government, so they are among the safest investments when it comes to getting repaid. Their prices still move with interest rates. Adults can buy them directly at TreasuryDirect.gov, starting at $100.</p>`
       },
       {
         id: 'price-and-yield',
@@ -873,6 +873,7 @@ export const BASICS = [
   <li><strong>Energy:</strong> crude oil, natural gas</li>
   <li><strong>Metals:</strong> gold, silver, copper</li>
   <li><strong>Agriculture:</strong> wheat, corn, coffee, cocoa</li>
+  <li><strong>Livestock:</strong> cattle, hogs</li>
 </ul>
 <p>Prices come down to supply and demand, pushed around by weather, wars and politics, trade deals, and the economy. Bad weather in West Africa, where much of the world's cocoa grows, helped send cocoa prices sharply higher in 2023.</p>
 <aside class="note example"><b>From the barrel to the pump</b><p>A barrel of crude oil holds 42 gallons. A $1 change in the price of a barrel works out to about 2.4 cents a gallon at the gas pump, all else equal.</p></aside>`
@@ -881,7 +882,7 @@ export const BASICS = [
         id: 'futures',
         title: 'Futures: a price today for delivery later',
         html: `
-<p>The <strong>spot price</strong> is the price for delivery right now. Most commodity trading uses <strong>futures contracts</strong> instead: agreements to buy or sell a set amount at a set price on a set future date. The exchange sets the size, quality, and delivery place, so traders only agree on price. Futures trade on exchanges such as NYMEX and CBOT, and the Commodity Futures Trading Commission (CFTC) regulates them, not the SEC.</p>
+<p>The <strong>spot price</strong> is the price for delivery right now. Most commodity trading uses <strong>futures contracts</strong> instead: agreements to buy or sell a set amount at a set price on a set future date. The exchange sets the size, quality, and delivery place, so traders only agree on price. Futures trade on exchanges such as NYMEX and CBOT, and the Commodity Futures Trading Commission (CFTC) regulates them, not the SEC. The CFTC calls speculating in futures "a volatile, complex and risky venture that is rarely suitable for individual investors."</p>
 <ul>
   <li><strong>Hedgers</strong> lock in prices. A farmer sells futures before harvest in case crop prices fall. A food company buys them to lock in ingredient costs.</li>
   <li><strong>Speculators</strong> try to profit from where prices go. They take on risk hedgers want to shed, which makes trading easier for everyone.</li>
@@ -903,7 +904,7 @@ export const BASICS = [
   </tbody>
 </table>
 <p>Funds that hold futures do not own the commodity. Their contracts expire, so they keep selling the old one and buying a later one, called rolling. When later contracts cost more, called <strong>contango</strong>, the fund loses a little on each roll. In 2020, several oil funds lost much of their value, and some investors learned they had owned oil futures, not oil.</p>
-<p>Other markets you will hear about: <strong>currencies</strong> trade more than anything else, about $9.6 trillion a day in April 2025. <strong>REITs</strong> own real estate such as apartments and warehouses and pay out most of their income as dividends. <strong>Crypto</strong> has no government backing and no FDIC or SIPC protection, so regulators say to risk only money you can afford to lose.</p>
+<p>Other markets you will hear about: <strong>currencies</strong> trade more than anything else, about $9.5 trillion a day in April 2025. <strong>REITs</strong> own real estate such as apartments and warehouses and pay out most of their income as dividends. <strong>Crypto</strong> has no government backing, is not FDIC-insured, and is mostly not covered by SIPC, so regulators say to risk only money you can afford to lose entirely.</p>
 <aside class="note try"><b>Try it in the game</b><p>In <a href="#/markets">Markets</a>, open SPY, BND, and GLD and set each chart to 1Y. Which moved the most? Which held steady? Owning a mix of markets that move differently is one way to spread out risk.</p></aside>`
       }
     ],
@@ -919,12 +920,17 @@ export const BASICS = [
       `A farmer hedges her corn crop, and then corn prices jump. Did hedging fail? Why might she do it again next year?`,
       `What news this year might explain the gas prices in your neighborhood?`
     ],
-    videos: [],
+    videos: [
+      yt('Bond Yields: Current Yield and YTM', 'WQhowJQoIag'),
+      { title: 'Treasury Bond Prices and Yields', youtube: 'mS7t91U9Qqg', source: 'Khan Academy' },
+      { title: 'Futures Introduction', youtube: '3g6P0lRXotI', source: 'Khan Academy' }
+    ],
     links: [
-      { title: 'Bonds', org: 'Investor.gov (U.S. SEC)', url: 'https://www.investor.gov/introduction-investing/investing-basics/investment-products/bonds-or-fixed-income-products/bonds' },
+      { title: 'Investor Bulletin: Interest Rate Risk', org: 'Investor.gov (U.S. SEC)', url: 'https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins-86' },
       { title: 'Understanding Bond Yield and Return', org: 'FINRA', url: 'https://www.finra.org/investors/insights/bond-yield-return' },
       { title: 'Comparing EE and I bonds', org: 'TreasuryDirect (U.S. Treasury)', url: 'https://www.treasurydirect.gov/savings-bonds/comparing-ee-and-i-bonds/' },
       { title: 'Basics of Futures Trading', org: 'CFTC', url: 'https://www.cftc.gov/LearnAndProtect/AdvisoriesAndArticles/FuturesMarketBasics/index.htm' },
+      { title: 'Learn About Risks Before Investing in Commodity ETPs or Funds', org: 'CFTC', url: 'https://www.cftc.gov/LearnAndProtect/AdvisoriesAndArticles/CustomerAdvisory_CommodityETPs.htm' },
       { title: 'Understanding Commodity Prices', org: 'Federal Reserve Bank of St. Louis', url: 'https://www.stlouisfed.org/open-vault/2025/dec/understanding-commodity-prices' }
     ],
     terms: ['bond', 'maturity', 'treasury-securities', 'tips', 'coupon-rate', 'yield', 'duration', 'credit-rating', 'high-yield-bond', 'municipal-bond', 'savings-bond', 'commodity', 'spot-price', 'futures-contract', 'hedging', 'contango'],
