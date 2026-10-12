@@ -504,6 +504,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .seg button:has(svg) { display: inline-flex; align-items: center; gap: 6px; }
 .seg.buy-sell button[aria-pressed="true"][data-value="buy"] { background: var(--up); color: var(--on-up); }
 .seg.buy-sell button[aria-pressed="true"][data-value="sell"] { background: var(--down); color: var(--on-down); }
+/* On phones, a .fill control spreads its buttons across the row so every option shows. */
+@media (max-width: 520px) {
+  .seg.fill { display: flex; width: 100%; }
+  .seg.fill button { flex: 1 1 0; min-width: 0; padding-inline: 2px; }
+}
 
 .field { display: grid; gap: 6px; min-width: 0; }
 .field label, .field .label { font-size: var(--step--1); font-weight: 600; color: var(--muted); }
@@ -565,7 +570,13 @@ button.chip { cursor: pointer; }
 .chip.warn { color: var(--warn); background: var(--warn-wash); border-color: transparent; }
 .chip.gold { color: var(--gold-text); background: var(--gold-wash); border-color: transparent; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chips.scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+/* One row that swipes sideways on touch screens. max-width keeps it inside its panel, even in a
+   header that wraps (otherwise the row grows to fit every chip and the panel cuts it off). */
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; scrollbar-width: thin; }
+/* A mouse cannot easily scroll a row sideways, so with a mouse or trackpad the chips wrap instead. */
+@media (hover: hover) and (pointer: fine) {
+  .chips.scroll { flex-wrap: wrap; overflow-x: visible; padding-bottom: 0; }
+}
 
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 .status-dot.open { background: var(--up); box-shadow: 0 0 0 3px var(--up-wash); }

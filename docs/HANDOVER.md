@@ -10,7 +10,7 @@ Last updated October 12, 2026.
 
 | Area | State | How it was verified |
 | --- | --- | --- |
-| Front end, demo mode | Complete | Browser smoke test of 15 pages at phone and desktop widths, a trade flow, the mentor panel, and two lesson exams (`npm run test:e2e`) |
+| Front end, demo mode | Complete | Browser smoke test of 15 pages at phone and desktop widths (no option in a row of chips or segmented buttons cut off), a trade flow, the mentor panel, two lesson exams, and the swipeable Browse row on a touch phone (`npm run test:e2e`) |
 | Front end, live mode | Complete | End-to-end browser test against a local stand-in for Supabase: mentor signup, sync, search, new game with QR, student join, trades, rule limits, orders, leaderboard, lesson exam, rejoin on a second device, roster, trade notes, cron cycle (`npm run test:live`) |
 | Database: schema, row level security, trading engine, mentor tools | Complete | 22 tests on real Postgres 18 (PGlite), including row level security checks |
 | Market edge function | Complete | 12 tests with Alpaca and Finnhub answered by test doubles |

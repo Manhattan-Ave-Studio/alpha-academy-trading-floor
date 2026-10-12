@@ -61,7 +61,7 @@ export async function render({ params, rerender }) {
             <span class="muted" style="font-size:var(--step--1)">${q ? html`Today · ${isDemo() ? 'simulated' : 'as of'} <span data-q="${sym}" data-f="time">${etTime(q.trade_time)}</span>` : 'Loading price'}</span>
           </div>
           <div class="split" style="margin-top:16px">
-            <div class="seg" role="group" aria-label="Chart range">
+            <div class="seg fill" role="group" aria-label="Chart range">
               ${RANGES.map((r) => html`<button type="button" data-range="${r}" aria-pressed="${r === lastRange}">${r}</button>`)}
             </div>
             <div class="row-wrap">
