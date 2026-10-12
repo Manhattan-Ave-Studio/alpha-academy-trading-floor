@@ -2,7 +2,7 @@
 
 This document is for whoever picks up the code next, including Claude Code sessions. It covers what exists, what has been verified, how the pieces fit, the conventions to keep, and what to build next. `CLAUDE.md` at the repository root is the short version that Claude Code reads automatically; this is the long version.
 
-Last updated October 11, 2026, on branch `feat/deeper-lessons`.
+Last updated October 12, 2026.
 
 ---
 
@@ -209,6 +209,7 @@ npm run test:live           # live mode end to end, starts its own stand-in serv
 - **Edge tests** bundle `supabase/functions/market/index.ts` with esbuild, stub the Supabase client to call the PGlite database, and answer Alpaca and Finnhub with `tests/support/market-fakes.mjs`.
 - **The live stand-in** (`tests/support/live-server.mjs`) serves the site plus enough of PostgREST, GoTrue, and Edge Functions to run the real browser client. If the app starts using a new Data API feature (a filter operator, an embed), add it there.
 - **Exams in browser tests:** questions are shuffled, so `tests/support/exam.mjs` reads each question from the page and answers it from the lesson data.
+- **Continuous integration** (`.github/workflows/tests.yml`) runs on every pull request and every merge to `main`, on Node 22. One job runs `npm test`. The other installs Chromium, runs the demo smoke test against `npm run dev`, then the live test, and keeps both tests' screenshots for 14 days (open the run, then Artifacts). The live test runs even when the demo test fails, so one run reports both.
 
 When behavior changes, change the tests in the same commit. When copy changes, `npm test` catches broken exams, missing glossary terms, unbalanced HTML, and em or en dashes.
 
@@ -322,7 +323,7 @@ Write it with `security definer` and `set search_path = ''`, grant execute only 
 - **IEX prices.** Real-time prices come from the IEX exchange alone. For thinly traded stocks they can lag the consolidated price; `ALPACA_FEED=delayed_sip` trades freshness for completeness.
 - **Video links** point to older Investopedia explainers. They were found through search on October 11, 2026, and could not be loaded directly from the build environment, so open each once after deploying.
 - **Postgres versions.** The database tests run on Postgres 18 (PGlite). A Supabase project may run an earlier major version. A scan of the migrations found no features that need 18, and the first deployment confirms it.
-- **No continuous integration yet.** Tests run locally only.
+- **Required checks.** CI reports on every pull request, but a failing check blocks a merge only once `main` has a rule that requires it (Settings, then Rules).
 - **Accessibility** follows good practice (labels, focus states, keyboard exams, reduced motion) but has not had a formal audit with a screen reader.
 - **Content sensitivity.** The pioneers lesson covers the Tulsa Race Massacre and includes Robert F. Smith's 2020 tax settlement alongside his achievements. Mentors should be ready for questions about both.
 
@@ -333,14 +334,13 @@ Write it with `security definer` and `set search_path = ''`, grant execute only 
 Ordered by value for the program.
 
 1. **Deploy and verify** (section 9.8), then point `gil1906.org/trading/` at it.
-2. **Continuous integration:** a GitHub Actions workflow that runs `npm test`, the demo smoke test, and the live test on every pull request.
-3. **Video link checker:** a script that asks YouTube's oEmbed endpoint about each video ID and fails if one disappears; run it in CI weekly.
-4. **Lesson assignments for mentors:** assign a lesson with a due date, see class results per question, and export lesson scores to CSV.
-5. **Notifications in the app:** a quiet inbox for fills, expirations, and new announcements.
-6. **Season tools:** archive a finished game with its final leaderboard, and start a new season with the same roster.
-7. **Practice mode for exams:** a mode that shows the explanation after each answer, alongside the graded exam.
-8. **Accessibility audit** with VoiceOver and NVDA, then fixes.
-9. **More lessons:** taxes on investments, insurance basics, entrepreneurship and small business finance, and reading the economy (inflation, interest rates, the Federal Reserve).
+2. **Video link checker:** a script that asks YouTube's oEmbed endpoint about each video ID and fails if one disappears; run it in CI weekly.
+3. **Lesson assignments for mentors:** assign a lesson with a due date, see class results per question, and export lesson scores to CSV.
+4. **Notifications in the app:** a quiet inbox for fills, expirations, and new announcements.
+5. **Season tools:** archive a finished game with its final leaderboard, and start a new season with the same roster.
+6. **Practice mode for exams:** a mode that shows the explanation after each answer, alongside the graded exam.
+7. **Accessibility audit** with VoiceOver and NVDA, then fixes.
+8. **More lessons:** taxes on investments, insurance basics, entrepreneurship and small business finance, and reading the economy (inflation, interest rates, the Federal Reserve).
 
 ---
 
