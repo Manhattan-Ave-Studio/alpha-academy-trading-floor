@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "echo 'No install needed: the site has no runtime dependencies.'",
+  "buildCommand": "node scripts/build-site.mjs",
+  "outputDirectory": "dist/site"
+}
