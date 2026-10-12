@@ -17,7 +17,13 @@ const bundle = await build({
   legalComments: 'none',
   write: false
 });
-const js = bundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+// Inline the logo so the one file needs no images beside it.
+const logoPath = 'assets/img/alpha-academy-logo.webp';
+const logoData = 'data:image/webp;base64,' + readFileSync(join(root, logoPath)).toString('base64');
+let js = bundle.outputFiles[0].text;
+if (!js.includes(logoPath)) throw new Error(`logo path ${logoPath} not found in the bundle`);
+js = js.replaceAll(logoPath, logoData).replace(/<\/script/gi, '<\\/script');
+const favicon = 'data:image/png;base64,' + readFileSync(join(root, 'assets/img/favicon.png')).toString('base64');
 const css = readFileSync(join(root, 'assets/css/app.css'), 'utf8').replace(/<\/style/gi, '<\\/style');
 
 const config = {
@@ -27,6 +33,7 @@ const config = {
 };
 
 const html = `<title>Alpha Academy Trading Floor</title>
+<link rel="icon" href="${favicon}" type="image/png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..800&display=swap">
 <style>
 ${css}

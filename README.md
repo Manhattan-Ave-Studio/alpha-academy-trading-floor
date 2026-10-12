@@ -186,7 +186,7 @@ Notes:
 
 - **Names and links:** `config.js`.
 - **Colors and type:** the tokens at the top of `assets/css/app.css` (black and old gold, set in Outfit, the sans from the chapter's Future Forward campaign).
-- **Logo:** the gold "A" mark (an original design whose crossbar is a rising price line) lives in `assets/js/lib/icons.js` and `assets/img/favicon.svg`. Swap in the official Alpha Academy logo there if you have one.
+- **Logo:** the Alpha Academy Mentorship Program seal, in `assets/img/`: `alpha-academy-logo.webp` (320 pixels square, transparent background) for the app, `favicon.png` (64 pixels) for the browser tab, and `apple-touch-icon.png` (180 pixels, on the dark background) for phone home screens. To update it, replace those three files and keep their names and sizes.
 - **Lessons:** `assets/js/data/lessons-*.js`. Each lesson is plain data: goals, sections in simple HTML, takeaways, discussion prompts, videos, links, key terms, and an 8-question exam. `npm test` checks every lesson for broken answers, missing terms, and unbalanced HTML. See `docs/HANDOVER.md` for the full format.
 - **Featured companies:** `assets/js/data/universe.js`. After editing, run `npm run seed` and run the new `supabase/seed.sql`.
 - **Resources and glossary:** `assets/js/data/resources.js` and `assets/js/data/glossary.js`.

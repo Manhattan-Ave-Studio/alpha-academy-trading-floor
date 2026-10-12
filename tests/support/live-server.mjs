@@ -13,7 +13,7 @@ import { createDb } from '../sql/harness.mjs';
 import { createFakeMarket, callRpc, loadMarketFunction } from './market-fakes.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.json': 'application/json' };
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 
 function b64url(obj) {

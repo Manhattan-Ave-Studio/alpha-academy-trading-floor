@@ -39,7 +39,7 @@ function authView({ rerender }) {
     <div class="landing" style="grid-template-columns: minmax(0,1fr)">
       <section class="panel" style="max-width:520px; width:100%; justify-self:center; padding: clamp(18px,3vw,28px)">
         <div class="stack" style="gap:16px">
-          <a class="brand" href="#/" style="padding:0">${raw(MARK)}<span class="words"><span class="program">${store.config.programName}</span><span class="product">Mentor panel</span></span></a>
+          <a class="brand lg" href="#/" style="padding:0">${raw(MARK)}<span class="words"><span class="program">${store.config.programName}</span><span class="product">Mentor panel</span></span></a>
           ${isDemo()
             ? html`<p class="muted">In the demo, the mentor panel opens without a login so you can see what mentors manage: join codes, rules, announcements, the roster, and each student's trade notes.</p>
                 <button class="btn block" type="button" data-demo-mentor>Explore the mentor panel</button>`

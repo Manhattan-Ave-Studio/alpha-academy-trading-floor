@@ -42,10 +42,7 @@ export function icon(name, extraClass = '') {
   return extraClass ? svg.replace('<svg ', `<svg class="${extraClass}" `) : svg;
 }
 
-/** Original Alpha Academy Trading Floor mark: an "A" whose crossbar is a rising price line. */
-export const MARK = `<svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
-  <rect width="40" height="40" rx="9" style="fill: var(--gold)"/>
-  <path d="M10.5 31 20 9l9.5 22" fill="none" style="stroke: var(--on-gold)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M13.2 23.6l4-3.4 3.4 2.4 5.6-5.4" fill="none" style="stroke: var(--on-gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M23.4 17.2h2.8V20" fill="none" style="stroke: var(--on-gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
+/** The Alpha Academy Mentorship Program logo. scripts/build-preview.mjs inlines this file for the one-file preview. */
+export const LOGO_SRC = 'assets/img/alpha-academy-logo.webp';
+// Decorative: the program name beside it, or the link's aria-label, names the link.
+export const MARK = `<img class="mark" src="${LOGO_SRC}" alt="" width="40" height="40" decoding="async">`;

@@ -42,7 +42,7 @@ export async function render({ params, navigate }) {
   const markup = html`
     <div class="landing">
       <div class="stack" style="gap:18px">
-        <a class="brand" href="#/" style="padding:0">${raw(MARK)}<span class="words"><span class="program">${c.programName}</span><span class="product">Trading Floor</span></span></a>
+        <a class="brand lg" href="#/" style="padding:0">${raw(MARK)}<span class="words"><span class="program">${c.programName}</span><span class="product">Trading Floor</span></span></a>
         <h1>Practice investing with real market prices.</h1>
         <p class="lede">Every player starts with the same play money. Research companies you know, place real order types, and see how your picks stack up against your classmates and the S&amp;P 500.</p>
         <ul class="stack" style="padding:0; list-style:none; gap:10px">
