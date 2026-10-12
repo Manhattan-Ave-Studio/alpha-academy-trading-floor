@@ -177,7 +177,7 @@ export async function renderLesson({ params }) {
                     <span class="v-hint">Plays here</span>
                   </button>
                 </div>
-                <figcaption><span>${v.source}${v.note ? `. ${v.note}` : ''}</span><a href="${videoUrl(v)}" target="_blank" rel="noopener noreferrer">Open on YouTube${raw(icon('external', 'v-ext'))}</a></figcaption>
+                <figcaption><span>${v.source}${v.note ? `. ${v.note}` : ''}</span><a href="${videoUrl(v)}" target="_blank" rel="noopener noreferrer">Open on YouTube<span class="sr-only">: ${v.title}</span>${raw(icon('external', 'v-ext'))}</a></figcaption>
               </figure>`
             : html`<a class="video-card" href="${videoUrl(v)}" target="_blank" rel="noopener noreferrer">
                 <span class="play">${raw(icon('play'))}</span>
@@ -240,7 +240,7 @@ export async function renderLesson({ params }) {
         const player = document.createElement('iframe');
         player.src = src;
         player.title = v.title;
-        player.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen; web-share';
+        player.allow = 'autoplay; encrypted-media; picture-in-picture; web-share';
         player.allowFullscreen = true;
         // YouTube refuses to play embeds that send no referrer, so keep the browser default.
         player.referrerPolicy = 'strict-origin-when-cross-origin';
