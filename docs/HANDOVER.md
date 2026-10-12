@@ -70,7 +70,7 @@ After deploying, run the checklist in section 9.8.
 index.html                     page shell; loads fonts, app.css, config.js, app.js
 config.js                      Supabase URL and publishable key, public URL, names and links
 assets/css/app.css             all styles: tokens (dark first, light theme), layout, components
-assets/img/favicon.svg         the gold "A" mark
+assets/img/                    the Alpha Academy logo, favicon, and phone home-screen icon
 assets/js/app.js               boot, shell (rail, top bar, ticker, tab bar), routes, tick loops, search
 assets/js/state.js             shared store: session, player, quotes, market status, theme
 assets/js/api/index.js         chooses live or demo

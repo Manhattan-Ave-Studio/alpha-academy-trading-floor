@@ -129,7 +129,7 @@ function shell() {
         </div>
       </aside>
       <header class="topbar">
-        <a class="brand-compact" href="#/">${raw(MARK)}<span class="words"><span class="program">${c.programName}</span><span class="product">Trading Floor</span></span></a>
+        <a class="brand-compact" href="#/" aria-label="${c.programName} Trading Floor">${raw(MARK)}<span class="words"><span class="program">${c.programName}</span><span class="product">Trading Floor</span></span></a>
         <div class="search-wrap">
           <div class="search">${raw(icon('search'))}
             <label class="sr-only" for="top-search">Search stocks and funds</label>
