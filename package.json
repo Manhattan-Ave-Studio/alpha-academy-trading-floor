@@ -1,0 +1,23 @@
+{
+  "name": "alpha-academy-trading-floor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stock market game and money lessons for the Alpha Academy Mentoring Program (Gamma Iota Lambda Chapter, Alpha Phi Alpha Fraternity, Inc.)",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:e2e": "node tests/e2e/smoke.mjs",
+    "test:live": "node tests/e2e/live-smoke.mjs",
+    "seed": "node scripts/gen-seed.mjs",
+    "vendor": "node scripts/vendor.mjs",
+    "build:preview": "node scripts/build-preview.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@supabase/supabase-js": "2.117.2",
+    "esbuild": "^0.25.0",
+    "playwright": "1.56.0",
+    "qrcode-generator": "2.0.4"
+  }
+}

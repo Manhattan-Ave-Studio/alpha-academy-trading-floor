@@ -1,0 +1,8 @@
+# Minimal Supabase CLI config for this project.
+# `supabase link --project-ref <ref>` connects it to your hosted project.
+project_id = "alpha-academy-market"
+
+[functions.market]
+# The function checks callers itself: signed-in users for market data,
+# a shared secret for the scheduled refresh.
+verify_jwt = false
