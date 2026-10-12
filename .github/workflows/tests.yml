@@ -1,0 +1,73 @@
+# Runs every test on each pull request and after each merge to main.
+# Screenshots from both browser tests are saved with the run (Summary, then Artifacts)
+# so reviewers can look at visual changes at phone and desktop widths.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Database, market function, engine, and content
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  browser:
+    name: Browser tests (demo and live mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        id: chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Demo mode smoke test
+        env:
+          SCREENSHOTS: screenshots/demo
+        run: |
+          npm run dev > dev-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:5173/ && break
+            sleep 1
+          done
+          npm run test:e2e
+
+      # Runs even when the demo test fails, so one run reports both.
+      - name: Live mode end to end
+        if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
+        env:
+          SCREENSHOTS: screenshots/live
+        run: npm run test:live
+
+      - name: Save screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+          retention-days: 14
+          if-no-files-found: ignore

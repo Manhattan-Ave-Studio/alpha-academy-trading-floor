@@ -206,6 +206,8 @@ The database tests run the real migrations in PGlite (Postgres compiled to WebAs
 
 The live-mode test (`tests/support/live-server.mjs`) serves the site with the real migrations, the real market function (with Alpaca and Finnhub answered by test doubles), and enough of Supabase's Data API and Auth to run the actual browser client. It catches problems between the pieces that unit tests miss.
 
+GitHub Actions runs all of these tests on every pull request and every merge to `main` (`.github/workflows/tests.yml`). Each run keeps the browser screenshots for 14 days: open the run, then download them under Artifacts.
+
 ## Troubleshooting
 
 | What you see | Fix |
@@ -236,6 +238,7 @@ docs/mentor-guide.md           a one-page guide for mentors running sessions
 docs/HANDOVER.md               the developer handover: architecture, status, conventions, roadmap
 CLAUDE.md                      working notes for Claude Code
 tests/                         database, function, engine, and browser tests
+.github/workflows/tests.yml    runs every test on each pull request
 ```
 
 Play money for learning. Nothing in this app is investment advice.

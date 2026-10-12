@@ -60,3 +60,4 @@ Browser tests: `SCREENSHOTS=dir` saves screenshots at phone and desktop widths; 
 - Branch, then pull request. No direct pushes to `main`. Commit messages start with `feat:`, `fix:`, `docs:`, or `test:`.
 - Before deployment, editing the existing migrations is fine. After the first deployment, every schema change is a new migration file.
 - Change tests in the same commit as behavior. Run `npm test` before every commit, and the browser tests after any UI change, then look at the screenshots at both widths.
+- CI (`.github/workflows/tests.yml`) runs `npm test` and both browser tests on every pull request. A pull request is ready when both checks pass.
