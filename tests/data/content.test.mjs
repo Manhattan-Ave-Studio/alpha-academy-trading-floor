@@ -56,6 +56,18 @@ test('every exam has 8 self-contained questions with valid answers', () => {
   assert.equal(correctToPass(LESSONS[0]), 6);
 });
 
+test('lessons refer to other lessons by title, since numbers change when lessons are added', () => {
+  for (const l of LESSONS) assert.doesNotMatch(allText(l), /\blesson \d+\b/i, `${l.id}: refer to other lessons by title`);
+});
+
+test('exam answers cannot be guessed by picking the longest choice', () => {
+  // Passing takes 6 of 8, so a student who always picks the longest choice must not reach 6.
+  for (const l of LESSONS) {
+    const longest = l.exam.filter((q) => q.choices.every((c, i) => i === q.answer || c.length < q.choices[q.answer].length)).length;
+    assert.ok(longest < correctToPass(l), `${l.id}: the right answer is the longest choice in ${longest} of ${l.exam.length} questions`);
+  }
+});
+
 test('lesson terms exist in the glossary', () => {
   for (const l of LESSONS) for (const t of l.terms) assert.ok(GLOSSARY[t], `${l.id}: missing glossary term ${t}`);
 });

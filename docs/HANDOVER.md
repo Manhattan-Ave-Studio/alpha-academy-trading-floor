@@ -15,7 +15,7 @@ Last updated October 12, 2026.
 | Database: schema, row level security, trading engine, mentor tools | Complete | 22 tests on real Postgres 18 (PGlite), including row level security checks |
 | Market edge function | Complete | 12 tests with Alpaca and Finnhub answered by test doubles |
 | Demo engine parity with SQL | Complete | 5 tests that run the same scenarios through both engines |
-| Lesson content | 21 lessons, 168 exam questions, 187 glossary terms | 6 content tests (answers, terms, HTML balance, style); facts checked October 11, 2026 (bonds and commodities lesson: October 12, 2026) |
+| Lesson content | 21 lessons, 168 exam questions, 187 glossary terms | 8 content tests (answers, exams not guessable by length, terms, HTML balance, style, lessons named by title); facts checked October 11, 2026 (bonds and commodities lesson: October 12, 2026) |
 | Hosting build (Vercel) | Complete | 4 tests: only browser files published, settings written from environment variables, secret keys refused; the demo browser test passes against the built folder |
 | Deployment | **Not deployed** | No Supabase project, Alpaca keys, or live site exist yet |
 
@@ -200,7 +200,7 @@ Students sign in anonymously. Joining binds that session to a player through the
 
 ```bash
 npm install                 # once; includes Playwright 1.56 and PGlite
-npm test                    # 49 tests: SQL, edge function, engine parity, content, hosting build
+npm test                    # 51 tests: SQL, edge function, engine parity, content, hosting build
 npm run dev                 # serves the site at http://localhost:5173
 npm run test:e2e            # demo-mode browser test (needs npm run dev in another terminal)
 npm run test:live           # live mode end to end, starts its own stand-in server on :5174
@@ -317,11 +317,9 @@ Write it with `security definer` and `set search_path = ''`, grant execute only 
 | Federal Reserve wealth figures (2022 survey) | Building generational wealth | Survey of Consumer Finances | Every three years; watch for the 2025 survey results |
 | Market drops table (through 2025) | Bulls, bears, and volatility | Index history | After any new bear market |
 | NYSE holidays (seeded through 2028) | `scripts/nyse-calendar.mjs`, `seed.sql` | NYSE | Extend before 2029; the weekly sync also loads the broker calendar |
-| Treasury terms (bills 4 to 52 weeks; notes 2 to 10 years; bonds 20 or 30; TIPS 5, 10, 30) | Beyond stocks | TreasuryDirect | When Treasury adds or drops a term (the 6-week bill arrived in 2025) |
+| Treasury purchases ($100 minimum at TreasuryDirect) and terms (bills 4 to 52 weeks; notes 2 to 10 years; bonds 20 or 30; TIPS 5, 10, 30) | Beyond stocks | TreasuryDirect | When Treasury adds or drops a term (the 6-week bill arrived in 2025) |
+| Bond index worst year (2022, about 13%, through 2025) | Beyond stocks | Bloomberg U.S. Aggregate Bond Index | After any year the index loses more than 13% |
 | Savings bonds ($25 minimum; $10,000 of EE and of I bonds per person a year, 2026) | Beyond stocks, glossary | TreasuryDirect | Rarely; check each fall |
-| U.S. credit ratings (Moody's Aa1 since May 2025) | Beyond stocks | Moody's, S&P, Fitch | After any rating change |
-| Currency trading (about $9.5 trillion a day, April 2025) | Beyond stocks | BIS Triennial Survey (December 2025 Quarterly Review figure; the September 2025 preliminary release said $9.6 trillion) | Every three years; next survey April 2028 |
-| Crypto oversight and warnings | Beyond stocks, Spotting scams | SEC, CFTC | Changing in 2025 and 2026; check each semester |
 | Video links | Lesson `videos` | YouTube | Check each semester. The bonds and commodities videos (WQhowJQoIag, mS7t91U9Qqg, 3g6P0lRXotI) were confirmed by ID, title, and channel on October 12, 2026, but their embedding could not be tested from the build environment |
 
 ---
@@ -331,7 +329,7 @@ Write it with `security definer` and `set search_path = ''`, grant execute only 
 - **Not yet deployed** (section 1). The first deployment is the highest-value next step.
 - **Free plan limits.** Supabase pauses free projects after about a week without activity, for example over winter break; restore from the dashboard. Alpaca's free data plan allows 200 calls a minute, far above this app's needs.
 - **IEX prices.** Real-time prices come from the IEX exchange alone. For thinly traded stocks they can lag the consolidated price; `ALPACA_FEED=delayed_sip` trades freshness for completeness.
-- **Video links** point to older Investopedia explainers. They were found through search on October 11, 2026, and could not be loaded directly from the build environment, so open each once after deploying.
+- **Lesson videos** are mostly older Investopedia explainers, plus two Khan Academy videos in the bonds and commodities lesson. The Investopedia IDs were found through search on October 11, 2026, and the three newest on October 12, 2026. None could be loaded from the build environment, so after deploying, open each lesson and press Play on every video to confirm it plays on the page. A video whose owner turned off embedding shows an error in the player; replace it, or students can use its Open on YouTube link.
 - **Postgres versions.** The database tests run on Postgres 18 (PGlite). A Supabase project may run an earlier major version. A scan of the migrations found no features that need 18, and the first deployment confirms it.
 - **Required checks.** CI reports on every pull request, but a failing check blocks a merge only once `main` has a rule that requires it (Settings, then Rules).
 - **Accessibility** follows good practice (labels, focus states, keyboard exams, reduced motion) but has not had a formal audit with a screen reader.
@@ -375,7 +373,7 @@ Ordered by value for the program.
 ## 14. First session checklist for Claude Code
 
 1. Read `CLAUDE.md`, then this file.
-2. `npm install`, then `npm test`. All 49 should pass.
+2. `npm install`, then `npm test`. All 51 should pass.
 3. `npm run dev`, open http://localhost:5173, and click through Learn, a lesson, its exam, Markets, a stock, the trade ticket, and the mentor panel.
 4. Before changing behavior, find the matching tests in section 7 and extend them.
 5. After visual changes, run the browser tests with `SCREENSHOTS=` and look at the images at phone and desktop widths.

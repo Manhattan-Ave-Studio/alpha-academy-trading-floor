@@ -14,7 +14,7 @@ export const PASS_MARK = 75;
 
 export const TRACKS = [
   { id: 'basics', title: 'Market Basics', blurb: 'How stocks, exchanges, quotes, and orders work.', icon: 'markets' },
-  { id: 'portfolio', title: 'Building a Portfolio', blurb: 'Risk, diversification, funds, research, and the mindset of a long-term investor.', icon: 'portfolio' },
+  { id: 'portfolio', title: 'Building a Portfolio', blurb: 'Risk, diversification, funds, bonds and commodities, research, and the mindset of a long-term investor.', icon: 'portfolio' },
   { id: 'life', title: 'Money for Life', blurb: 'Compounding, paychecks, banking, credit, college, real accounts, and scams.', icon: 'tools' },
   { id: 'legacy', title: 'Wealth and Legacy', blurb: 'Generational wealth, the builders who came before you, and careers in finance.', icon: 'ranks' }
 ];

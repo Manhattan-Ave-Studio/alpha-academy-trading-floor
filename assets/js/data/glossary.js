@@ -51,7 +51,7 @@ export const GLOSSARY = {
   'dividend-yield': { term: 'Dividend yield', def: 'A company\'s yearly dividends divided by its stock price, shown as a percent.' },
   'dollar-cost-averaging': { term: 'Dollar-cost averaging', def: 'Investing a fixed amount on a regular schedule, so you buy more shares when prices are low and fewer when they are high.' },
   'dow': { term: 'Dow Jones Industrial Average', def: 'An index of 30 large, well-known U.S. companies.' },
-  'duration': { term: 'Duration', def: 'How much a bond or bond fund\'s price tends to move when interest rates change. With a duration of 6, a 1 point rise in rates lowers the price about 6%.' },
+  'duration': { term: 'Duration', def: 'How much a bond or bond fund\'s price tends to move when interest rates change. With a duration of 6, a 1 percentage point rise in rates lowers the price about 6%.' },
   'earned-income': { term: 'Earned income', def: 'Money you earn by working, like wages or self-employment income. Required to contribute to an IRA.' },
   'earnings-report': { term: 'Earnings report', def: 'A company\'s quarterly update on its sales and profits. Stocks often move sharply on earnings day.' },
   'emergency-fund': { term: 'Emergency fund', def: 'Savings set aside for surprises like a lost job or a big repair. A common goal is three to six months of expenses.' },
@@ -152,7 +152,7 @@ export const GLOSSARY = {
   'ticker': { term: 'Ticker', def: 'The short code for a stock or fund, like AAPL for Apple or SPY for an S&P 500 ETF.' },
   'time-horizon': { term: 'Time horizon', def: 'How long until you need the money you are investing.' },
   'time-in-force': { term: 'Time in force', def: 'How long an order stays active. Day orders expire at the close; good-til-canceled orders stay open.' },
-  'tips': { term: 'TIPS', def: 'Treasury Inflation-Protected Securities: Treasury bonds whose principal rises with inflation, so their interest payments rise too.' },
+  'tips': { term: 'TIPS', def: 'Treasury Inflation-Protected Securities: Treasury securities whose face value rises with inflation, so their interest payments rise too.' },
   'total-return': { term: 'Total return', def: 'Your overall gain or loss compared with what you started with.' },
   'treasury-securities': { term: 'Treasuries', def: 'Bills, notes, and bonds the U.S. Treasury sells to borrow money. They are backed by the full faith and credit of the U.S. government.' },
   'unrealized-gain': { term: 'Unrealized gain', def: 'A gain or loss on paper for an investment you still own.' },
@@ -188,7 +188,7 @@ export const GLOSSARY = {
   'traditional-ira': { term: 'Traditional IRA', def: 'A retirement account where contributions may be tax-deductible now and withdrawals are taxed in retirement.' },
   'vesting': { term: 'Vesting', def: 'The schedule for when employer contributions to your retirement plan become fully yours.' },
   'will': { term: 'Will', def: 'A legal document that says who receives your property after you die.' },
-  'yield': { term: 'Yield', def: 'A bond\'s interest as a percent of its current price. When a bond\'s price falls, its yield rises, and the reverse.' }
+  'yield': { term: 'Yield', def: 'What a bond earns as a percent of its current price. Current yield counts only the yearly interest; yield to maturity also counts the gain or loss when the face value is repaid. When a bond\'s price falls, its yield rises.' }
 };
 
 export function glossaryList() {
