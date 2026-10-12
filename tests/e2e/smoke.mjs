@@ -1,5 +1,6 @@
 // Browser smoke test of the demo build: every page renders without console errors, at phone and
-// desktop widths, and a full trade works (market buy, limit order, cancel).
+// desktop widths, and a full trade works (market buy, limit order, cancel). Rows of chips and
+// segmented buttons show every option, and on a touch phone the Browse row swipes inside its panel.
 //
 //   npm run dev            (in one terminal)
 //   npx playwright install chromium   (once)
@@ -36,8 +37,8 @@ const ROUTES = [
 const failures = [];
 const browser = await chromium.launch();
 
-async function session(name, viewport, colorScheme) {
-  const ctx = await browser.newContext({ viewport, colorScheme, deviceScaleFactor: 1 });
+async function session(name, viewport, colorScheme, device = {}) {
+  const ctx = await browser.newContext({ viewport, colorScheme, deviceScaleFactor: 1, ...device });
   const page = await ctx.newPage();
   const errors = [];
   page.on('console', (m) => {
@@ -52,6 +53,18 @@ async function session(name, viewport, colorScheme) {
   return { ctx, page, errors, name };
 }
 
+// Options in a row of chips or segmented buttons that sit past the visible edge of the row or its
+// panel, where a mouse user cannot reach them. Runs in the page.
+function clippedOptions() {
+  return [...document.querySelectorAll('#main .chips, #main .seg')].filter((row) => row.offsetParent).flatMap((row) => {
+    const panel = row.closest('.panel');
+    const edge = Math.min(row.getBoundingClientRect().right, panel ? panel.getBoundingClientRect().right : Infinity, window.innerWidth);
+    return [...row.children]
+      .filter((option) => option.getBoundingClientRect().right > edge + 1)
+      .map((option) => `${row.getAttribute('aria-label') || 'row'}: ${option.textContent.trim()}`);
+  });
+}
+
 async function visit(s, label, hash) {
   await s.page.goto(BASE + hash);
   await s.page.waitForSelector('#main .view', { timeout: 15000 });
@@ -61,6 +74,7 @@ async function visit(s, label, hash) {
   const failed = await s.page.$('.empty b');
   const failedText = failed ? await failed.textContent() : '';
   if (/did not load/.test(failedText || '')) failures.push(`${s.name} ${label}: ${failedText}`);
+  for (const option of await s.page.evaluate(clippedOptions)) failures.push(`${s.name} ${label}: cut off: ${option}`);
   if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${s.name}-${label}.png`, fullPage: label === 'home' || label === 'stock' });
 }
 
@@ -141,9 +155,44 @@ for (const [name, viewport, scheme] of [
   await s.ctx.close();
 }
 
+// Touch phone: the Browse row swipes sideways inside its panel, the chosen group is back in view after
+// leaving and returning, and every chart range fits.
+{
+  const t = await session('phone-touch', { width: 360, height: 760 }, 'light', { isMobile: true, hasTouch: true });
+  await t.page.goto(BASE + '#/markets');
+  await t.page.waitForSelector('[data-col]');
+  const lastGroup = await t.page.locator('[data-col]').last();
+  const chosen = (await lastGroup.textContent()).trim();
+  await lastGroup.click();
+  await t.page.evaluate(() => { location.hash = '#/'; });
+  await t.page.waitForSelector('#main .view');
+  await t.page.evaluate(() => { location.hash = '#/markets'; });
+  await t.page.waitForSelector('[data-col]');
+  await t.page.waitForTimeout(300);
+  const row = await t.page.evaluate(() => {
+    const el = document.querySelector('.chips.scroll');
+    const on = el.querySelector('[aria-pressed="true"]');
+    const r = el.getBoundingClientRect(), c = on.getBoundingClientRect();
+    return {
+      insidePanel: r.right <= el.closest('.panel').getBoundingClientRect().right + 1,
+      swipes: el.scrollWidth > el.clientWidth,
+      chosenInView: c.left >= r.left - 1 && c.right <= r.right + 1,
+      chosen: on.textContent.trim()
+    };
+  });
+  if (!row.insidePanel) failures.push('phone-touch markets: the Browse row is wider than its panel');
+  if (!row.swipes) failures.push('phone-touch markets: the Browse row should swipe sideways on a phone');
+  if (row.chosen !== chosen || !row.chosenInView) failures.push(`phone-touch markets: "${chosen}" should be chosen and in view after returning (${JSON.stringify(row)})`);
+  await t.page.goto(BASE + '#/stock/AAPL');
+  await t.page.waitForSelector('[data-range]');
+  for (const option of await t.page.evaluate(clippedOptions)) failures.push(`phone-touch stock: cut off: ${option}`);
+  if (t.errors.length) failures.push(...t.errors.map((e) => `phone-touch console: ${e}`));
+  await t.ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, and lesson exams`);
+console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, lesson exams, and a touch phone`);

@@ -14,6 +14,14 @@ const INDEX = [
 
 let lastCollection = 'brands';
 
+// On touch screens the Browse row scrolls sideways. Bring a chip fully into view without moving the page.
+function reveal(row, chip) {
+  const r = row.getBoundingClientRect();
+  const c = chip.getBoundingClientRect();
+  if (c.left < r.left) row.scrollLeft -= r.left - c.left + 16;
+  else if (c.right > r.right) row.scrollLeft += c.right - r.right + 16;
+}
+
 export function searchResultsHtml(rows, query) {
   if (!query) return '';
   if (!rows.length) {
@@ -91,6 +99,9 @@ export async function render() {
     mount(el) {
       const input = $('#m-search', el);
       const out = $('#m-results', el);
+      const chipRow = $('.chips.scroll', el);
+      const chosenChip = chipRow.querySelector('[aria-pressed="true"]');
+      if (chosenChip) reveal(chipRow, chosenChip);
       let seq = 0;
       const run = debounce(async () => {
         const q = input.value.trim();
@@ -128,6 +139,7 @@ export async function render() {
           return;
         }
         lastCollection = b.dataset.col;
+        reveal(chipRow, b);
         el.querySelectorAll('[data-col]').forEach((x) => {
           const on = x.dataset.col === lastCollection;
           x.setAttribute('aria-pressed', String(on));
