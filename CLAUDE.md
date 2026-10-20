@@ -14,7 +14,7 @@ The full handover is `docs/HANDOVER.md`. Read it before any change bigger than a
 
 ```bash
 npm install          # test tools only; the site has no runtime dependencies and no build step
-npm test             # 51 tests: SQL on PGlite, edge function, demo engine parity, lesson content, hosting build
+npm test             # 54 tests: SQL on PGlite, edge function, demo engine parity, lesson content, hosting build
 npm run dev          # http://localhost:5173
 npm run test:e2e     # demo browser smoke test; needs npm run dev running
 npm run test:live    # live mode end to end against a local Supabase stand-in on :5174

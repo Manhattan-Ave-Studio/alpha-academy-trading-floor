@@ -197,6 +197,10 @@ await m.page.goto(`${server.origin}/#/mentor/game/${gameRow[0].id}`);
 await m.page.waitForSelector('.table');
 const roster = await m.page.textContent('.table');
 expect(roster.includes('Jalen R.'), 'roster lists the student');
+const jalenActive = await m.page.$eval('#roster-panel tbody', (tb) => [...tb.rows].find((r) => r.textContent.includes('Jalen R.'))?.querySelector('.act')?.className || '');
+expect(jalenActive.includes('act-now'), `a student who just rejoined shows as active now (${jalenActive})`);
+const activityLine = (await m.page.textContent('[data-activity]')).replace(/\s+/g, ' ').trim();
+expect(/^\d+ of \d+ active now \d+ in the last hour$/.test(activityLine), `roster activity count: ${activityLine}`);
 const pid = (await server.sql(`select id from public.players limit 1`))[0].id;
 await m.page.goto(`${server.origin}/#/mentor/player/${pid}`);
 await m.page.waitForSelector('text=Trade notes');
@@ -219,5 +223,5 @@ if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('ok: live mode end to end (mentor signup, sync, search, new game, QR, join, trades, rules, orders, leaderboard, lesson exam, rejoin, roster, notes)');
+console.log('ok: live mode end to end (mentor signup, sync, search, new game, QR, join, trades, rules, orders, leaderboard, lesson exam, rejoin, roster with activity, notes)');
 process.exit(0);

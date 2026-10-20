@@ -104,6 +104,15 @@ for (const [name, viewport, scheme] of [
   await s.page.waitForSelector('.res-card');
   await s.page.click('.res-card');
   await s.page.waitForSelector('.join-code');
+  // Roster activity: a count of who is active now, and a dot with words on every row.
+  const act = await s.page.evaluate(() => ({
+    summary: (document.querySelector('[data-activity]')?.textContent || '').replace(/\s+/g, ' ').trim(),
+    rows: [...document.querySelectorAll('#roster-panel tbody tr')].length,
+    kinds: [...document.querySelectorAll('#roster-panel tbody .act')].map((e) => [...e.classList].find((c) => c !== 'act'))
+  }));
+  if (!/^\d+ of \d+ active now \d+ in the last hour$/.test(act.summary)) failures.push(`${name}: roster activity summary reads "${act.summary}"`);
+  if (act.kinds.length !== act.rows) failures.push(`${name}: ${act.rows - act.kinds.length} roster rows have no activity status`);
+  for (const k of ['act-now', 'act-hour', 'act-earlier']) if (!act.kinds.includes(k)) failures.push(`${name}: no roster row shows ${k}`);
   if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${name}-mentor-game.png`, fullPage: true });
 
   if (name === 'desktop-dark') {
@@ -241,4 +250,4 @@ if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel, trade flow, lesson exams, lesson videos, and a touch phone`);
+console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel with roster activity, trade flow, lesson exams, lesson videos, and a touch phone`);

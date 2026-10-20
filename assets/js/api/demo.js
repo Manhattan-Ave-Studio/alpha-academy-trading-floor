@@ -25,6 +25,9 @@ const BOTS = [
 
 const delay = (v) => Promise.resolve(v);
 const now = () => Date.now();
+// Minutes since each sample classmate was last active (by the last digit of the id), so the mentor
+// roster shows every activity state: active now, in the last hour, and earlier.
+const DEMO_IDLE_MINUTES = [2, 1, 3, 18, 42, 140, 400, 1500, 4400, 9000];
 const iso = (ms) => new Date(ms).toISOString();
 const etToday = () => sim.etIso(now());
 const atEt = (day, hours) => sim.etMidnight(day) + hours * 3600000;
@@ -563,7 +566,7 @@ export class DemoApi {
       trades: r.trades,
       open_orders: r.is_me ? this.state.me.orders.filter((o) => o.status === 'open').length : 0,
       lessons_completed: r.is_me ? passedCount(this.state.me.lessons) : (parseInt(r.player_id.slice(-1), 10) * 3) % 11,
-      last_active_at: r.is_me ? iso(now()) : iso(now() - parseInt(r.player_id.slice(-1), 10) * 9 * 3600000),
+      last_active_at: r.is_me ? iso(now()) : iso(now() - (DEMO_IDLE_MINUTES[parseInt(r.player_id.slice(-1), 10)] ?? 90) * 60000),
       joined_at: this.game.starts_at,
       locked: false
     }));

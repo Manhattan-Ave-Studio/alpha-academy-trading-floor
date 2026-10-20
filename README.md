@@ -21,7 +21,7 @@ The site is plain HTML, CSS, and JavaScript (no build step), so it runs on GitHu
 **For mentors**
 - Create games with their own rules: starting cash, single-stock limit, lowest share price, commission, fractional shares, whether classmates can see holdings, start and end dates
 - A join code and QR code for each game, an announcement banner on every student's home screen, pause or end a game, reset a game after a practice round
-- Roster with value, return, trades, lessons passed, and last activity, refreshing as students join; reset a PIN, rename, or remove a player; download the roster as CSV
+- Roster with value, return, trades, lessons passed, and live activity: a green dot for students on the app right now, gold for the last hour, and a count like "4 of 5 active now" for spotting who has not logged on during a session. It refreshes as students join; reset a PIN, rename, or remove a player; download the roster as CSV
 - Each student's page shows holdings, every trade note, and best exam scores
 - Market data status and a one-click sync
 
@@ -197,6 +197,7 @@ Notes:
 
 - Students never give an email or full name. They choose a display name and a 4 to 6 digit PIN (stored as a bcrypt hash). Five wrong PINs lock the player for 10 minutes; a mentor can reset it.
 - Students see classmates' names and totals on the leaderboard. Holdings stay private unless a mentor turns on sharing. Orders, trade notes, and lesson progress are visible only to the student and mentors.
+- Mentors also see when each student was last active. While the app is open on screen, it records that every 2 minutes in the chapter's own database; nothing goes to an outside service, and it stops when the student closes the app or the screen locks.
 - Removing a player deletes their portfolio, orders, and progress.
 - Lesson videos load nothing from YouTube until a student presses Play. The video then plays in YouTube's privacy-enhanced player (youtube-nocookie.com), and Google receives the student's IP address, as with any YouTube visit. Each video also has an Open on YouTube link.
 
@@ -213,7 +214,7 @@ Notes:
 
 ```bash
 npm install            # test tools only; the site itself has no dependencies
-npm test               # 51 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, and the hosting build
+npm test               # 54 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, and the hosting build
 npm run test:e2e       # browser smoke test of every page at phone and desktop widths (needs `npm run dev` running and `npx playwright install chromium`)
 npm run test:live      # live mode in a real browser against a local stand-in for Supabase (mentor signup, new game, join, trades, rejoin, roster)
 npm run build:preview  # single-file demo for sharing a preview link

@@ -1,6 +1,6 @@
 // Mentor panel: sign in, games, join codes with QR, rules, announcements, roster, and data status.
 import { html, raw, $, $$, esc, n } from '../lib/dom.js';
-import { money, pctSigned, trend, etDayYear, ago, etWhen } from '../lib/format.js';
+import { money, pctSigned, trend, etDayYear, ago, etWhen, activity, activityCounts } from '../lib/format.js';
 import { icon, MARK } from '../lib/icons.js';
 import { toast, copyText, openSheet, confirmSheet } from '../lib/ui.js';
 import { store, isDemo, loadSession } from '../state.js';
@@ -311,20 +311,37 @@ function gameLede(g, roster) {
   return `${roster.length} ${roster.length === 1 ? 'player' : 'players'} · started ${etDayYear(g.starts_at)}${g.ends_at ? ` · ends ${etDayYear(g.ends_at)}` : ''}`;
 }
 
+function activityCell(t) {
+  const a = activity(t);
+  return html`<span class="act act-${a.key}"><span class="act-dot" aria-hidden="true"></span>${a.label}</span>`;
+}
+
+function activitySummary(roster) {
+  const c = activityCounts(roster);
+  return html`<p class="act-summary" data-activity>
+        <span class="act act-now"><span class="act-dot" aria-hidden="true"></span><span><b>${c.now}</b> of ${c.total} active now</span></span>
+        <span class="act act-hour"><span class="act-dot" aria-hidden="true"></span><span><b>${c.hour}</b> in the last hour</span></span>
+      </p>`;
+}
+
+// Changes when the roster data changes or when time moves a player into another activity group.
+const rosterSignature = (roster) => JSON.stringify(roster) + roster.map((r) => activity(r.last_active_at).key).join();
+
 function rosterPanel(roster, canExport) {
   return html`
       <div class="panel-head"><h3>Roster</h3>${canExport && roster.length ? html`<button class="btn ghost small" type="button" data-export>Download CSV</button>` : ''}</div>
+      ${roster.length ? activitySummary(roster) : ''}
       ${roster.length
         ? html`<div class="table-wrap"><table class="table">
-            <thead><tr><th>Player</th><th class="r">Value</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Open</th><th class="r">Lessons</th><th>Last active</th><th></th></tr></thead>
+            <thead><tr><th>Player</th><th>Last active</th><th class="r">Value</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Open</th><th class="r">Lessons</th><th></th></tr></thead>
             <tbody>${roster.map((r) => html`<tr>
               <td><a class="sym" href="#/mentor/player/${r.player_id}">${r.display_name}</a>${r.locked ? html` <span class="chip warn">Locked</span>` : ''}</td>
+              <td>${activityCell(r.last_active_at)}</td>
               <td class="r">${money(r.total_value)}</td>
               <td class="r ${trend(r.return_pct)}">${pctSigned(r.return_pct)}</td>
               <td class="r">${r.trades}</td>
               <td class="r">${r.open_orders}</td>
               <td class="r">${r.lessons_completed}</td>
-              <td>${r.last_active_at ? ago(r.last_active_at) : 'Never'}</td>
               <td class="r"><div class="row-wrap" style="justify-content:flex-end; flex-wrap:nowrap">
                 <button class="btn ghost small" type="button" data-pin="${r.player_id}" data-name="${r.display_name}">Reset PIN</button>
                 <button class="btn ghost small" type="button" data-rename="${r.player_id}" data-name="${r.display_name}">Rename</button>
@@ -540,19 +557,23 @@ async function gameDetail({ params, rerender }) {
       });
 
       // Students show up on the roster while the join code is on screen.
-      let last = JSON.stringify(roster);
+      // Activity dots and counts update as students come and go.
+      let last = rosterSignature(roster);
       let busy = false;
       const timer = setInterval(async () => {
         if (document.hidden || busy) return;
         busy = true;
         try {
           const next = await api.roster(g.id);
-          const sig = JSON.stringify(next);
+          const sig = rosterSignature(next);
           if (sig !== last && el.isConnected) {
-            last = sig;
             roster = next;
             const panel = $('#roster-panel', el);
-            if (panel && !panel.contains(document.activeElement)) panel.innerHTML = rosterPanel(roster, canExport).toString();
+            // Wait while a roster button has focus, then catch up on a later pass.
+            if (panel && !panel.contains(document.activeElement)) {
+              panel.innerHTML = rosterPanel(roster, canExport).toString();
+              last = sig;
+            }
             const lede = $('.page-head .lede', el);
             if (lede) lede.textContent = gameLede(g, roster);
           }

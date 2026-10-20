@@ -110,7 +110,7 @@ docs/                          mentor guide and this handover
 
 A view is a function that returns `{ html, mount(el) }`. `mount` attaches listeners and may return a cleanup function, or an object with `tick()` and `destroy()`. The router calls the cleanup before the next render, and calls `view.tick()` on every price tick.
 
-Two loops keep things fresh: `tickOnce` (every 4 seconds in demo, 30 seconds live) refreshes quotes for whatever is on screen and the player's portfolio, then updates any element marked with `data-q` or `data-pf` without re-rendering. `slowTick` (30 or 60 seconds) refreshes market status and the ticker, and sends a heartbeat every tenth pass in live mode.
+Two loops keep things fresh: `tickOnce` (every 4 seconds in demo, 30 seconds live) refreshes quotes for whatever is on screen and the player's portfolio, then updates any element marked with `data-q` or `data-pf` without re-rendering. `slowTick` (30 or 60 seconds) refreshes market status and the ticker. In live mode it also sends a heartbeat at most every 2 minutes (`HEARTBEAT_MS`), skipping hidden pages and sending one as soon as the page is back on screen. The heartbeat sets `players.last_active_at`, which the mentor roster turns into an activity dot: active now (5 minutes or less, `ACTIVE_NOW_MINUTES` in `lib/format.js`), the last hour, or earlier. `tests/lib/activity.test.mjs` fails if the heartbeat gets too slow for the "active now" window.
 
 ### Templates and escaping
 
@@ -200,7 +200,7 @@ Students sign in anonymously. Joining binds that session to a player through the
 
 ```bash
 npm install                 # once; includes Playwright 1.56 and PGlite
-npm test                    # 51 tests: SQL, edge function, engine parity, content, hosting build
+npm test                    # 54 tests: SQL, edge function, engine parity, content, hosting build
 npm run dev                 # serves the site at http://localhost:5173
 npm run test:e2e            # demo-mode browser test (needs npm run dev in another terminal)
 npm run test:live           # live mode end to end, starts its own stand-in server on :5174
@@ -373,7 +373,7 @@ Ordered by value for the program.
 ## 14. First session checklist for Claude Code
 
 1. Read `CLAUDE.md`, then this file.
-2. `npm install`, then `npm test`. All 51 should pass.
+2. `npm install`, then `npm test`. All 54 should pass.
 3. `npm run dev`, open http://localhost:5173, and click through Learn, a lesson, its exam, Markets, a stock, the trade ticket, and the mentor panel.
 4. Before changing behavior, find the matching tests in section 7 and extend them.
 5. After visual changes, run the browser tests with `SCREENSHOTS=` and look at the images at phone and desktop widths.

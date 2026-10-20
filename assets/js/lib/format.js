@@ -126,14 +126,36 @@ export function etIsoDate(t = new Date()) {
   return etIsoFmt.format(toDate(t));
 }
 
-export function ago(t) {
+export function ago(t, nowMs = Date.now()) {
   if (!t) return '';
-  const s = Math.round((Date.now() - toDate(t).getTime()) / 1000);
+  const s = Math.round((nowMs - toDate(t).getTime()) / 1000);
   if (s < 45) return 'just now';
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
   if (s < 86400) return `${Math.round(s / 3600)} hr ago`;
   const days = Math.round(s / 86400);
   return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/**
+ * Minutes since a player's last activity that still count as "active now". A student with the app
+ * on screen sends a heartbeat every 2 minutes (HEARTBEAT_MS in app.js), so this allows one missed beat.
+ */
+export const ACTIVE_NOW_MINUTES = 5;
+/** Minutes that count as "in the last hour" on the mentor roster. */
+export const ACTIVE_RECENT_MINUTES = 60;
+
+/** A player's activity for the mentor roster: key is now, hour, earlier, or never. */
+export function activity(t, nowMs = Date.now()) {
+  if (!t) return { key: 'never', label: 'Never' };
+  const minutes = (nowMs - toDate(t).getTime()) / 60000;
+  if (minutes <= ACTIVE_NOW_MINUTES) return { key: 'now', label: 'Active now' };
+  return { key: minutes <= ACTIVE_RECENT_MINUTES ? 'hour' : 'earlier', label: ago(t, nowMs) };
+}
+
+/** Counts for the roster summary: players active now, and active in the last hour (including now). */
+export function activityCounts(rows, nowMs = Date.now()) {
+  const keys = rows.map((r) => activity(r.last_active_at, nowMs).key);
+  return { total: rows.length, now: keys.filter((k) => k === 'now').length, hour: keys.filter((k) => k === 'now' || k === 'hour').length };
 }
 
 export function initials(symbol) {

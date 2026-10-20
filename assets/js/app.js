@@ -287,16 +287,27 @@ async function tickOnce() {
   }
 }
 
-let slowTicks = 0;
+// Heartbeat: lets mentors see who has the app open. Sent at most every HEARTBEAT_MS while the page is
+// on screen (slowTick skips hidden pages, and runs again when the page comes back). Keep it under
+// ACTIVE_NOW_MINUTES in lib/format.js.
+const HEARTBEAT_MS = 2 * 60 * 1000;
+let lastHeartbeat = 0;
+function sendHeartbeat() {
+  if (!playerId() || isDemo()) return;
+  const t = Date.now();
+  if (t - lastHeartbeat < HEARTBEAT_MS - 5000) return;
+  lastHeartbeat = t;
+  store.api.heartbeat(playerId());
+}
+
 async function slowTick() {
   if (document.hidden) return;
-  slowTicks++;
+  sendHeartbeat();
   try {
     await refreshMarket();
     $('#market-badge').innerHTML = marketBadge(store.market).toString();
     paintTape();
     updateBindings(document);
-    if (playerId() && !isDemo() && slowTicks % 10 === 0) store.api.heartbeat(playerId());
   } catch (_) {
     // ignore
   }
@@ -457,7 +468,7 @@ async function boot() {
   start(renderRoute);
   setInterval(tickOnce, isDemo() ? 4000 : 30000);
   setInterval(slowTick, isDemo() ? 30000 : 60000);
-  if (playerId() && !isDemo()) store.api.heartbeat(playerId());
+  sendHeartbeat();
 }
 
 boot();
