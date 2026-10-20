@@ -22,9 +22,13 @@ test('activity groups players into now, the last hour, earlier, and never', () =
 
 test('a student on screen sends heartbeats often enough to stay active now', () => {
   const app = readFileSync(new URL('../../assets/js/app.js', import.meta.url), 'utf8');
-  const m = app.match(/const HEARTBEAT_MS = ([\d\s*]+);/);
-  assert.ok(m, 'app.js defines HEARTBEAT_MS');
-  const beatMs = Function(`return ${m[1]}`)();
-  // One missed beat (a slow network, a timer delayed by the browser) must not drop a student out of "now".
-  assert.ok(2 * beatMs <= ACTIVE_NOW_MINUTES * 60000, `heartbeat every ${beatMs} ms is too slow for ${ACTIVE_NOW_MINUTES} minutes`);
+  const ms = (name) => {
+    const m = app.match(new RegExp(`const ${name} = ([\\d\\s*]+);`));
+    assert.ok(m, `app.js defines ${name}`);
+    return Function(`return ${m[1]}`)();
+  };
+  // A beat goes out on the first slowTick at least the minimum gap after the last one.
+  const worstGap = ms('HEARTBEAT_MIN_GAP_MS') + ms('SLOW_TICK_LIVE_MS');
+  // One failed beat (a dropped request) must not drop a student out of "now".
+  assert.ok(2 * worstGap <= ACTIVE_NOW_MINUTES * 60000, `beats up to ${worstGap} ms apart are too slow for ${ACTIVE_NOW_MINUTES} minutes`);
 });

@@ -14,7 +14,7 @@ The full handover is `docs/HANDOVER.md`. Read it before any change bigger than a
 
 ```bash
 npm install          # test tools only; the site has no runtime dependencies and no build step
-npm test             # 54 tests: SQL on PGlite, edge function, demo engine parity, lesson content, hosting build
+npm test             # 55 tests: SQL on PGlite, edge function, demo engine parity, lesson content, hosting build
 npm run dev          # http://localhost:5173
 npm run test:e2e     # demo browser smoke test; needs npm run dev running
 npm run test:live    # live mode end to end against a local Supabase stand-in on :5174
@@ -31,7 +31,7 @@ Browser tests: `SCREENSHOTS=dir` saves screenshots at phone and desktop widths; 
 - `assets/js/api/index.js` picks `LiveApi` (`live.js`, Supabase) or `DemoApi` (`demo.js`). Both must expose the same methods.
 - `assets/js/engine/trading.js` mirrors the SQL order rules for demo mode; `sim.js` is the deterministic demo market.
 - `assets/js/data/`: lessons (`lessons-*.js` content, `lessons.js` registry and helpers), `glossary.js`, `resources.js`, `universe.js`.
-- `supabase/migrations/`: 100 core and RLS, 200 market data, 300 trading engine, 400 people and mentors, 500 service.
+- `supabase/migrations/`: 100 core and RLS, 200 market data, 300 trading engine, 400 people and mentors, 500 service, then later changes with their own dates (20261020000100 keeps last activity mentor-only).
 - `supabase/functions/market/`: the Deno edge function for quotes, bars, news, profiles, and the every-minute cycle.
 - `tests/`: `sql/` (PGlite harness), `edge/`, `engine/`, `data/`, `e2e/`, `support/` (market fakes, live stand-in, exam helper).
 

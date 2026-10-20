@@ -138,7 +138,7 @@ export function ago(t, nowMs = Date.now()) {
 
 /**
  * Minutes since a player's last activity that still count as "active now". A student with the app
- * on screen sends a heartbeat every 2 minutes (HEARTBEAT_MS in app.js), so this allows one missed beat.
+ * on screen sends a heartbeat about once a minute (app.js), so this allows a missed beat or two.
  */
 export const ACTIVE_NOW_MINUTES = 5;
 /** Minutes that count as "in the last hour" on the mentor roster. */

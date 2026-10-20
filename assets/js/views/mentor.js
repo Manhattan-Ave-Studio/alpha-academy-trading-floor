@@ -2,7 +2,7 @@
 import { html, raw, $, $$, esc, n } from '../lib/dom.js';
 import { money, pctSigned, trend, etDayYear, ago, etWhen, activity, activityCounts } from '../lib/format.js';
 import { icon, MARK } from '../lib/icons.js';
-import { toast, copyText, openSheet, confirmSheet } from '../lib/ui.js';
+import { toast, copyText, openSheet, confirmSheet, sheetIsOpen } from '../lib/ui.js';
 import { store, isDemo, loadSession } from '../state.js';
 import { pageHead, footer, empty, demoBanner } from './common.js';
 import { rulesList } from './account.js';
@@ -311,21 +311,53 @@ function gameLede(g, roster) {
   return `${roster.length} ${roster.length === 1 ? 'player' : 'players'} · started ${etDayYear(g.starts_at)}${g.ends_at ? ` · ends ${etDayYear(g.ends_at)}` : ''}`;
 }
 
-function activityCell(t) {
-  const a = activity(t);
-  return html`<span class="act act-${a.key}"><span class="act-dot" aria-hidden="true"></span>${a.label}</span>`;
+function activityCell(r) {
+  const a = activity(r.last_active_at);
+  return html`<span class="act act-${a.key}" data-act-for="${r.player_id}"><span class="act-dot" aria-hidden="true"></span><span class="act-label">${a.label}</span></span>`;
 }
 
 function activitySummary(roster) {
   const c = activityCounts(roster);
   return html`<p class="act-summary" data-activity>
         <span class="act act-now"><span class="act-dot" aria-hidden="true"></span><span><b>${c.now}</b> of ${c.total} active now</span></span>
-        <span class="act act-hour"><span class="act-dot" aria-hidden="true"></span><span><b>${c.hour}</b> in the last hour</span></span>
+        <span class="act act-hour"><span class="act-dot" aria-hidden="true"></span><span><b>${c.hour - c.now}</b> more in the last hour</span></span>
       </p>`;
 }
 
-// Changes when the roster data changes or when time moves a player into another activity group.
-const rosterSignature = (roster) => JSON.stringify(roster) + roster.map((r) => activity(r.last_active_at).key).join();
+// Activity changes with the clock as well as the data, so the poll updates it in place on every
+// pass. The rest of the roster redraws only when its data changes.
+function refreshActivity(panel, roster) {
+  const byId = new Map(roster.map((r) => [r.player_id, r]));
+  for (const cell of panel.querySelectorAll('[data-act-for]')) {
+    const r = byId.get(cell.dataset.actFor);
+    if (!r) continue;
+    const a = activity(r.last_active_at);
+    cell.className = `act act-${a.key}`;
+    const label = cell.querySelector('.act-label');
+    if (label.textContent !== a.label) label.textContent = a.label;
+  }
+  const summary = panel.querySelector('[data-activity]');
+  if (summary && roster.length) summary.outerHTML = activitySummary(roster).toString();
+}
+
+const rosterData = (roster) => JSON.stringify(roster.map(({ last_active_at, ...r }) => r));
+
+// Redraw the roster, keeping the table's sideways scroll and the focused control.
+function redrawRoster(panel, roster, canExport) {
+  const focused = document.activeElement;
+  let refocus = null;
+  if (focused && panel.contains(focused)) {
+    const key = ['pin', 'rename', 'remove'].find((k) => k in focused.dataset);
+    if (key) refocus = `[data-${key}="${CSS.escape(focused.dataset[key])}"]`;
+    else if ('export' in focused.dataset) refocus = '[data-export]';
+    else if (focused.matches('a[href]')) refocus = `a[href="${CSS.escape(focused.getAttribute('href'))}"]`;
+  }
+  const scroll = panel.querySelector('.table-wrap')?.scrollLeft || 0;
+  panel.innerHTML = rosterPanel(roster, canExport).toString();
+  const wrap = panel.querySelector('.table-wrap');
+  if (wrap) wrap.scrollLeft = scroll;
+  if (refocus) panel.querySelector(refocus)?.focus({ preventScroll: true });
+}
 
 function rosterPanel(roster, canExport) {
   return html`
@@ -336,7 +368,7 @@ function rosterPanel(roster, canExport) {
             <thead><tr><th>Player</th><th>Last active</th><th class="r">Value</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Open</th><th class="r">Lessons</th><th></th></tr></thead>
             <tbody>${roster.map((r) => html`<tr>
               <td><a class="sym" href="#/mentor/player/${r.player_id}">${r.display_name}</a>${r.locked ? html` <span class="chip warn">Locked</span>` : ''}</td>
-              <td>${activityCell(r.last_active_at)}</td>
+              <td>${activityCell(r)}</td>
               <td class="r">${money(r.total_value)}</td>
               <td class="r ${trend(r.return_pct)}">${pctSigned(r.return_pct)}</td>
               <td class="r">${r.trades}</td>
@@ -557,26 +589,27 @@ async function gameDetail({ params, rerender }) {
       });
 
       // Students show up on the roster while the join code is on screen.
-      // Activity dots and counts update as students come and go.
-      let last = rosterSignature(roster);
+      // Activity dots, labels, and counts update in place on every pass.
+      let last = rosterData(roster);
       let busy = false;
       const timer = setInterval(async () => {
         if (document.hidden || busy) return;
         busy = true;
         try {
           const next = await api.roster(g.id);
-          const sig = rosterSignature(next);
-          if (sig !== last && el.isConnected) {
-            roster = next;
-            const panel = $('#roster-panel', el);
-            // Wait while a roster button has focus, then catch up on a later pass.
-            if (panel && !panel.contains(document.activeElement)) {
-              panel.innerHTML = rosterPanel(roster, canExport).toString();
-              last = sig;
-            }
-            const lede = $('.page-head .lede', el);
-            if (lede) lede.textContent = gameLede(g, roster);
+          const panel = $('#roster-panel', el);
+          if (!el.isConnected || !panel) return;
+          roster = next;
+          const sig = rosterData(next);
+          // While a Reset PIN, Rename, or Remove sheet is open, its button must stay in place.
+          if (sig !== last && !sheetIsOpen()) {
+            redrawRoster(panel, roster, canExport);
+            last = sig;
+          } else {
+            refreshActivity(panel, roster);
           }
+          const lede = $('.page-head .lede', el);
+          if (lede) lede.textContent = gameLede(g, roster);
         } catch (_) {
           // try again on the next pass
         } finally {

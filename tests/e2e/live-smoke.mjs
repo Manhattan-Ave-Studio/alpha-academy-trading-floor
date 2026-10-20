@@ -200,7 +200,7 @@ expect(roster.includes('Jalen R.'), 'roster lists the student');
 const jalenActive = await m.page.$eval('#roster-panel tbody', (tb) => [...tb.rows].find((r) => r.textContent.includes('Jalen R.'))?.querySelector('.act')?.className || '');
 expect(jalenActive.includes('act-now'), `a student who just rejoined shows as active now (${jalenActive})`);
 const activityLine = (await m.page.textContent('[data-activity]')).replace(/\s+/g, ' ').trim();
-expect(/^\d+ of \d+ active now \d+ in the last hour$/.test(activityLine), `roster activity count: ${activityLine}`);
+expect(/^\d+ of \d+ active now \d+ more in the last hour$/.test(activityLine), `roster activity count: ${activityLine}`);
 const pid = (await server.sql(`select id from public.players limit 1`))[0].id;
 await m.page.goto(`${server.origin}/#/mentor/player/${pid}`);
 await m.page.waitForSelector('text=Trade notes');

@@ -287,17 +287,20 @@ async function tickOnce() {
   }
 }
 
-// Heartbeat: lets mentors see who has the app open. Sent at most every HEARTBEAT_MS while the page is
-// on screen (slowTick skips hidden pages, and runs again when the page comes back). Keep it under
-// ACTIVE_NOW_MINUTES in lib/format.js.
-const HEARTBEAT_MS = 2 * 60 * 1000;
-let lastHeartbeat = 0;
+// Heartbeat: lets mentors see who has the app open. slowTick sends one on each pass while the page is
+// on screen (hidden pages skip it, and the page sends one as soon as it is back), at most once per
+// HEARTBEAT_MIN_GAP_MS, so beats are never more than HEARTBEAT_MIN_GAP_MS + SLOW_TICK_LIVE_MS apart.
+// tests/lib/activity.test.mjs checks that two of those gaps fit inside ACTIVE_NOW_MINUTES.
+const SLOW_TICK_LIVE_MS = 60 * 1000;
+const HEARTBEAT_MIN_GAP_MS = 50 * 1000;
+let lastBeat = { player: null, at: -Infinity };
 function sendHeartbeat() {
-  if (!playerId() || isDemo()) return;
-  const t = Date.now();
-  if (t - lastHeartbeat < HEARTBEAT_MS - 5000) return;
-  lastHeartbeat = t;
-  store.api.heartbeat(playerId());
+  const player = playerId();
+  if (!player || isDemo()) return;
+  const t = performance.now();
+  if (player === lastBeat.player && t - lastBeat.at < HEARTBEAT_MIN_GAP_MS) return;
+  lastBeat = { player, at: t };
+  store.api.heartbeat(player);
 }
 
 async function slowTick() {
@@ -467,7 +470,7 @@ async function boot() {
 
   start(renderRoute);
   setInterval(tickOnce, isDemo() ? 4000 : 30000);
-  setInterval(slowTick, isDemo() ? 30000 : 60000);
+  setInterval(slowTick, isDemo() ? 30000 : SLOW_TICK_LIVE_MS);
   sendHeartbeat();
 }
 
