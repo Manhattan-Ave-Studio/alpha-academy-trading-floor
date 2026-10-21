@@ -3,6 +3,10 @@
 
 const FRESH_MS = 90 * 1000;
 
+// Students and mentors may read only these columns of players directly. Last activity stays with
+// mentors, through game_roster (see the activity privacy migration). Postgres refuses select *.
+const PLAYER_COLUMNS = 'id, game_id, user_id, display_name, cash, realized_pl, created_at, games(*)';
+
 // Database functions raise plain-English messages; pass them straight through.
 function errorMessage(error, fallback) {
   if (!error) return fallback;
@@ -95,7 +99,7 @@ export class LiveApi {
     const uid = this.userId();
     if (!uid) return [];
     const rows = await this.select(
-      this.client.from('players').select('*, games(*)').eq('user_id', uid).order('created_at', { ascending: false })
+      this.client.from('players').select(PLAYER_COLUMNS).eq('user_id', uid).order('created_at', { ascending: false })
     );
     return rows.map((r) => {
       const { games, ...player } = r;

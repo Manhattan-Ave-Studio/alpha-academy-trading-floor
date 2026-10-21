@@ -422,3 +422,36 @@ test('game end cancels open orders and blocks trading; reset restarts everyone',
   const pos = await h.sql(`select count(*)::int n from public.positions where player_id in ($1, $2)`, [p1.id, p2.id]);
   assert.equal(pos[0].n, 0);
 });
+
+test('heartbeat marks only the caller’s own player active on the roster', async () => {
+  const activeAt = async (playerId) => {
+    const roster = await h.rpc(mentor, 'game_roster', { p_game_id: game.id });
+    return new Date(roster.find((r) => r.player_id === playerId).last_active_at).toISOString();
+  };
+  await h.setNow('2026-10-16T14:00:00Z');
+  await h.rpc(s1, 'heartbeat', { p_player_id: p1.id });
+  assert.equal(await activeAt(p1.id), '2026-10-16T14:00:00.000Z');
+  const before = await activeAt(p2.id);
+
+  await h.setNow('2026-10-16T14:02:00Z');
+  await h.rpc(s1, 'heartbeat', { p_player_id: p2.id });
+  assert.equal(await activeAt(p2.id), before, 'a heartbeat for another student’s player changes nothing');
+  const stranger = await h.createUser({ anon: true });
+  await h.rpc(stranger, 'heartbeat', { p_player_id: p1.id });
+  assert.equal(await activeAt(p1.id), '2026-10-16T14:00:00.000Z', 'nor does one from outside the game');
+
+  await h.rpc(s2, 'heartbeat', { p_player_id: p2.id });
+  assert.equal(await activeAt(p2.id), '2026-10-16T14:02:00.000Z');
+});
+
+test('students cannot read anyone’s last activity directly; their own player row still loads', async () => {
+  await rejects(h.select(s2, 'select display_name, last_active_at from public.players'), /permission denied/);
+  await rejects(h.select(s2, 'select * from public.players'), /permission denied/);
+  const own = await h.select(s2, 'select id, game_id, user_id, display_name, cash, realized_pl, created_at from public.players where user_id = $1', [s2.id]);
+  assert.equal(own.length, 1);
+  assert.equal(own[0].id, p2.id);
+  const classmates = await h.select(s2, 'select id, display_name from public.players where game_id = $1', [game.id]);
+  assert.equal(classmates.length, 2, 'names stay visible within the game, as before');
+  const roster = await h.rpc(mentor, 'game_roster', { p_game_id: game.id });
+  assert.ok(roster.every((r) => r.last_active_at), 'mentors still see activity on the roster');
+});
