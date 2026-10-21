@@ -84,6 +84,19 @@ export async function refreshPlayer() {
   if (summary?.game && store.current) store.current.game = summary.game;
 }
 
+/** Re-reads the game alone (its status and required lessons), the copy the trading lock is decided from,
+ * so an admin's change reaches the student's screens without a visit to Home or a reload. */
+export async function refreshGame() {
+  const gid = gameId();
+  if (!gid) return null;
+  const summary = await store.api.gameSummary(gid);
+  if (summary?.game && store.current?.game?.id === summary.game.id) {
+    store.summary = summary;
+    store.current.game = summary.game;
+  }
+  return summary;
+}
+
 export function savedTheme() {
   return load('aatf.theme', 'auto');
 }

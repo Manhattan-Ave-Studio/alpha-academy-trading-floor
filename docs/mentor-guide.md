@@ -51,7 +51,7 @@ Each game has admins, chosen from the mentors. Whoever creates a game is its fir
 - Every mentor can open any game and see its roster and every student's page.
 - Only the game's admins can change its rules, pause or end it, reset it, assign required lessons, reset a PIN, rename or remove a player, reset an exam, or add and remove admins. Other mentors see those controls disabled with the note "Only admins can change this game. Ask one of them to add you."
 - To add an admin: on the game's page, under **Admins**, enter the brother's email and press **Add admin**. They need a mentor login and the mentor code first, and the email must match the one they signed up with.
-- **Remove** takes an admin off the list. A game keeps at least one admin, so add another before removing the last one. If every admin's account is gone, the game is open to every mentor, so no game is ever stuck.
+- **Remove** takes an admin off the list. A game keeps at least one admin, so add another before removing the last one. A game with no admins left (none of them is a mentor any longer) is open to every mentor, so no game is stuck.
 
 ## Mentor tools
 

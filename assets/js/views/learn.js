@@ -3,7 +3,7 @@ import { html, raw, $, $$, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { toast, confirmSheet } from '../lib/ui.js';
 import { etWhen } from '../lib/format.js';
-import { store, playerId } from '../state.js';
+import { store, playerId, refreshGame } from '../state.js';
 import {
   TRACKS, LESSONS, PASS_MARK, EXAM_TRIES, lessonById, lessonsForTrack, lessonNumber, nextLesson, prevLesson,
   isPassed, passedCount, nextToStudy, correctToPass, videoUrl, videoEmbedUrl,
@@ -16,7 +16,9 @@ async function progress() {
   const pid = playerId();
   if (!pid) return store.lessons || {};
   try {
-    store.lessons = await store.api.lessonProgress(pid);
+    // The game comes along so the Required chips and line follow the admins' latest save.
+    const [lessons] = await Promise.all([store.api.lessonProgress(pid), refreshGame().catch(() => {})]);
+    store.lessons = lessons;
   } catch (_) {
     // keep what we have
   }
@@ -254,7 +256,7 @@ export async function renderLesson({ params }) {
           <div class="stack" style="gap:6px; min-width:0">
             <h2 id="h-exam">Lesson exam</h2>
             <p>${lesson.exam.length} questions on their own screen. Answer at least ${need} correctly (${PASS_MARK}%) to complete the lesson. Your best score counts.</p>
-            <p class="${passed ? 'up' : 'muted'}"><b data-tries>${triesLine(prior)}</b>${prior?.completed_at ? html` <span class="faint">Best score from ${etWhen(prior.completed_at)}.</span>` : ''}</p>
+            <p class="${passed ? 'up' : 'muted'}"><b data-tries>${triesLine(prior)}</b>${prior?.completed_at ? html` <span class="muted">Best score from ${etWhen(prior.completed_at)}.</span>` : ''}</p>
           </div>
           ${passed
             ? html`<span class="chip up exam-chip">${raw(icon('check'))} Passed</span>`
@@ -488,6 +490,8 @@ export async function renderExam({ params, navigate }) {
         const canRetake = !passed && (!tracked || left > 0);
         const h = $('#result-h', stage);
         if (h) h.textContent = passed ? 'Lesson complete' : lockedNow ? 'Out of tries' : 'Keep going';
+        const again = $('[data-exam-again]', stage);
+        if (again) again.textContent = canRetake ? ', then try again.' : '.';
         const line = $('[data-exam-tries]', stage);
         if (line) {
           line.innerHTML = html`${lockedNow ? html`<b data-exam-locked>${LOCKED_NOTE}</b> ` : ''}Best score ${en.score}%. Pass mark ${PASS_MARK}%.${
@@ -526,7 +530,7 @@ export async function renderExam({ params, navigate }) {
             <h1 id="result-h" tabindex="-1">${passedNow ? 'Lesson complete' : 'Keep going'}</h1>
             <p class="result-line"><b>${right} of ${order.length} correct.</b> ${passedNow
               ? `You passed with ${score}%.`
-              : `You need ${correctToPass(lesson)} of ${order.length} to pass. Review the explanations below${moreTries ? ', then try again.' : '.'}`}</p>
+              : html`You need ${correctToPass(lesson)} of ${order.length} to pass. Review the explanations below<span data-exam-again>${moreTries ? ', then try again.' : '.'}</span>`}</p>
             <p class="muted" data-exam-tries></p>
             <div class="row-wrap" data-exam-actions></div>
           </div>
@@ -569,6 +573,14 @@ export async function renderExam({ params, navigate }) {
             toast(passedNow ? 'Lesson complete. Progress saved.' : 'Score saved', 'good');
           } catch (err) {
             toast(err.message, 'bad');
+            // The database is the referee. When it refuses the save (the tries were used up, or the
+            // lesson was passed, on another device), show its row instead of the guess.
+            try {
+              store.lessons = await store.api.lessonProgress(playerId());
+            } catch (_) {
+              // keep what we have
+            }
+            paintOutcome(store.lessons?.[lesson.id] || entry);
           }
         }
       };
@@ -594,6 +606,23 @@ export async function renderExam({ params, navigate }) {
           return;
         }
         if (e.target.closest('[data-retake]')) {
+          if (tracked) {
+            // The tries may have been used on another device since this screen loaded. Ask before
+            // serving questions whose score could not be saved.
+            const card = $('.exam-result', stage);
+            card?.setAttribute('data-exam-checking', '');
+            try {
+              store.lessons = await store.api.lessonProgress(playerId());
+            } catch (_) {
+              // keep what we have
+            }
+            card?.removeAttribute('data-exam-checking');
+            const latest = store.lessons?.[lesson.id];
+            if (isPassed(latest) || examLocked(latest)) {
+              paintOutcome(latest);
+              return;
+            }
+          }
           start();
           window.scrollTo(0, 0);
           return;

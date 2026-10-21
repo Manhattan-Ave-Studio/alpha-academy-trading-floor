@@ -3,7 +3,10 @@
 // segmented buttons show every option, and on a touch phone the Browse row swipes inside its panel.
 // The mentor panel shows the game's admins and required lessons; requiring a lesson locks the
 // student out of trading until they pass it; an exam locks after three tries until a mentor
-// resets it from the student's page.
+// resets it from the student's page. A save the referee refuses (the tries were used elsewhere)
+// locks the result card; a required lesson the course no longer has shows on Home without a
+// Required chip on the wrong lesson; unsaved lesson picks survive a rules save on the game page;
+// the only admin's Remove button points at a visible hint; Select all buttons name their track.
 //
 //   npm run dev            (in one terminal)
 //   npx playwright install chromium   (once)
@@ -13,7 +16,7 @@
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { takeExam } from '../support/exam.mjs';
-import { LESSONS, lessonById } from '../../assets/js/data/lessons.js';
+import { LESSONS, TRACKS, EXAM_TRIES, lessonById, lessonsForTrack } from '../../assets/js/data/lessons.js';
 
 const BASE = process.env.BASE_URL || 'http://localhost:5173/';
 const SHOTS = process.env.SCREENSHOTS || '';
@@ -42,6 +45,10 @@ const ROUTES = [
 // which the student has passed; their how-the-market-works entry is a 63% with two tries used.
 const DEMO_GAME = 'demo-game';
 const DEMO_STUDENT = 'demo-me';
+// Two lessons the demo student has not started, for the exam saves the referee refuses.
+const UNTRIED = 'reading-a-quote';
+const UNTRIED_2 = 'bulls-bears-volatility';
+const LAST_ADMIN_HINT = 'A game needs at least one admin. Add another admin before removing this one.';
 
 const failures = [];
 const browser = await chromium.launch();
@@ -106,6 +113,39 @@ async function fitsWidth(s, label) {
   if (overflow > 1) failures.push(`${s.name} ${label}: page scrolls sideways by ${overflow}px`);
 }
 
+// Uses up the demo student's tries on one lesson behind an open screen, the way tries spent on
+// another device reach the database in live mode. The demo API answers from its saved state
+// (aatf.demo.v1 in localStorage, read at boot and kept in memory), so the row changes in both.
+const useUpTries = (page, id) => page.evaluate(([lessonId, tries]) => import('/assets/js/state.js').then(({ store }) => {
+  const prior = store.api.state.me.lessons[lessonId];
+  store.api.state.me.lessons[lessonId] = { score: prior?.score ?? 50, completed_at: prior?.completed_at ?? new Date().toISOString(), attempts: tries };
+  store.api.persist();
+}), [id, EXAM_TRIES]);
+
+// A required lesson id the course no longer has (a lesson renamed in a later build) keeps trading
+// locked. Home says so in the banner, and the Keep learning card carries no Required chip, since the
+// lesson it shows is not required.
+async function staleRequired(s) {
+  await s.page.evaluate(() => {
+    const demo = JSON.parse(localStorage.getItem('aatf.demo.v1'));
+    demo.game.required_lessons = ['what-is-a-stock', 'gone-lesson'];
+    localStorage.setItem('aatf.demo.v1', JSON.stringify(demo));
+  });
+  await s.page.goto(BASE + '#/');
+  await s.page.reload();
+  await s.page.waitForSelector('[data-trading-locked]');
+  const banner = await textOf(s.page, '[data-trading-locked]');
+  if (!/This game also requires a lesson that is no longer in the course\. Ask a mentor to save the required lessons again\./.test(banner || '') || /Trading opens after you pass:/.test(banner || '')) failures.push(`${s.name}: home banner with a stale required id reads "${banner}"`);
+  const card = await s.page.evaluate(() => ({
+    shown: !!document.querySelector('.lesson-card'),
+    chip: !!document.querySelector('.lesson-card [data-required-chip]')
+  }));
+  if (!card.shown) failures.push(`${s.name}: home should still show the Keep learning card with a stale required id`);
+  if (card.chip) failures.push(`${s.name}: the Keep learning card should carry no Required chip when the only lesson left is one the course no longer has`);
+  await fitsWidth(s, 'home stale');
+  if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${s.name}-home-stale.png`, fullPage: true });
+}
+
 for (const [name, viewport, scheme] of [
   ['desktop-dark', { width: 1366, height: 900 }, 'dark'],
   ['phone-light', { width: 390, height: 844 }, 'light']
@@ -143,6 +183,11 @@ for (const [name, viewport, scheme] of [
       checked: [...document.querySelectorAll('[data-lessons-panel] [data-lesson-check]')].filter((c) => c.checked).map((c) => c.dataset.lessonCheck),
       boxes: document.querySelectorAll('[data-lessons-panel] [data-lesson-check]').length,
       saveOff: document.querySelector('[data-lessons-save]')?.disabled ?? null,
+      hint: document.querySelector('[data-admins-panel] [data-admin-last-hint]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+      hintShown: (document.querySelector('[data-admins-panel] [data-admin-last-hint]')?.getClientRects().length ?? 0) > 0,
+      hintTarget: document.getElementById(document.querySelector('[data-admins-panel] [data-admin-remove]')?.getAttribute('aria-describedby') || '')?.hasAttribute('data-admin-last-hint') ?? false,
+      trackButtons: [...document.querySelectorAll('[data-lessons-panel] [data-track-all]')].map((b) => [b.dataset.trackAll, b.textContent.trim(), b.getAttribute('aria-label')]),
+      countLive: document.querySelector('[data-lessons-panel] [data-required-count]')?.getAttribute('aria-live') ?? null,
       cells: [...document.querySelectorAll('#roster-panel tbody [data-tries-cell]')].map((c) => c.textContent.trim()),
       student: row?.querySelector('[data-tries-cell]')?.textContent.trim() ?? null,
       studentDone: row?.querySelector('[data-tries-cell]')?.classList.contains('up') ?? null
@@ -157,6 +202,41 @@ for (const [name, viewport, scheme] of [
   if (panels.saveOff !== false) failures.push(`${name}: Save required lessons should be enabled for an admin (${panels.saveOff})`);
   if (panels.cells.length !== act.rows || panels.cells.some((c) => !/^(\d+ of \d+|none)$/.test(c))) failures.push(`${name}: roster Required cells: ${JSON.stringify(panels.cells)}`);
   if (panels.student !== '1 of 1' || panels.studentDone !== true) failures.push(`${name}: Demo Student's Required cell should read "1 of 1" and count as done, saw "${panels.student}" (${panels.studentDone})`);
+  if (panels.hint !== LAST_ADMIN_HINT || !panels.hintShown) failures.push(`${name}: the only admin's Remove button needs a visible hint, saw "${panels.hint}" (shown: ${panels.hintShown})`);
+  if (!panels.hintTarget) failures.push(`${name}: the only admin's Remove button should point at the hint through aria-describedby`);
+  if (JSON.stringify(panels.trackButtons) !== JSON.stringify(TRACKS.map((t) => [t.id, 'Select all', `Select all in ${t.title}`]))) failures.push(`${name}: each Select all button needs its track's name, saw ${JSON.stringify(panels.trackButtons)}`);
+  if (panels.countLive !== 'polite') failures.push(`${name}: the required count should announce changes, aria-live is "${panels.countLive}"`);
+
+  // Unsaved picks survive a save elsewhere on the page. Select all flips to Clear all for its track
+  // (text and name together); a rules save redraws the head and the roster in place, so the picks,
+  // the count, and the Not saved note stay. Then the picks go back to the saved list.
+  const lastTrack = TRACKS[TRACKS.length - 1];
+  const lastTrackIds = lessonsForTrack(lastTrack.id).map((l) => l.id);
+  const expectedPicks = ['what-is-a-stock', 'order-types', ...lastTrackIds].join();
+  const pendingCount = `${2 + lastTrackIds.length} lessons required`;
+  const picksState = () => s.page.evaluate((trackId) => ({
+    checked: [...document.querySelectorAll('[data-lesson-check]')].filter((c) => c.checked).map((c) => c.dataset.lessonCheck).join(),
+    count: document.querySelector('[data-required-count]')?.textContent.trim(),
+    dirty: !(document.querySelector('[data-lessons-dirty]')?.hidden ?? true),
+    track: `${document.querySelector(`[data-track-all="${trackId}"]`)?.textContent.trim()}|${document.querySelector(`[data-track-all="${trackId}"]`)?.getAttribute('aria-label')}`,
+    polling: !!document.querySelector('[data-activity]')
+  }), lastTrack.id);
+  await s.page.check('[data-lesson-check="order-types"]');
+  await s.page.click(`[data-track-all="${lastTrack.id}"]`);
+  const picked = await picksState();
+  if (picked.checked !== expectedPicks || picked.count !== pendingCount || !picked.dirty) failures.push(`${name}: picks before the rules save: ${JSON.stringify(picked)}`);
+  if (picked.track !== `Clear all|Clear all in ${lastTrack.title}`) failures.push(`${name}: Select all should flip to Clear all with its track's name, saw "${picked.track}"`);
+  await s.page.click('#rules-form button[type="submit"]');
+  await s.page.waitForSelector('.toast.good:has-text("Rules saved")');
+  await s.page.waitForTimeout(500);
+  const kept = await picksState();
+  if (kept.checked !== expectedPicks || kept.count !== pendingCount || !kept.dirty) failures.push(`${name}: a rules save dropped the unsaved lesson picks: ${JSON.stringify(kept)}`);
+  if (kept.track !== `Clear all|Clear all in ${lastTrack.title}` || !kept.polling) failures.push(`${name}: after the rules save: ${JSON.stringify(kept)}`);
+  if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${name}-mentor-picks-kept.png`, fullPage: true });
+  await s.page.click(`[data-track-all="${lastTrack.id}"]`);
+  await s.page.uncheck('[data-lesson-check="order-types"]');
+  const restored = await picksState();
+  if (restored.checked !== 'what-is-a-stock' || restored.count !== '1 lesson required' || restored.dirty || restored.track !== `Select all|Select all in ${lastTrack.title}`) failures.push(`${name}: picks after clearing them again: ${JSON.stringify(restored)}`);
 
   // With focus on a roster button (as after Download CSV), activity still refreshes and focus stays put.
   await s.page.evaluate(() => {
@@ -333,6 +413,37 @@ for (const [name, viewport, scheme] of [
     const finished = await textOf(s.page, '.exam-result');
     if (!/Lesson complete/.test(finished) || !/nothing to retake/.test(finished)) failures.push(`exam screen for a passed lesson reads "${finished}"`);
 
+    // A save the referee refuses: the tries were used up behind this open exam (on another device,
+    // in live mode). The card shows the saved row, Out of tries with no retake, beside the refusal.
+    await s.page.goto(BASE + `#/learn/${UNTRIED}/exam`);
+    await s.page.waitForSelector('#q-text');
+    await useUpTries(s.page, UNTRIED);
+    const guess = await takeExam(s.page, UNTRIED, { wrong: 4 });
+    if (!/4 of 8 correct/.test(guess)) failures.push(`exam with the tries used elsewhere: ${guess}`);
+    await s.page.waitForSelector('.toast.bad:has-text("You have used all 3 tries for this exam. Ask a mentor to reset it.")');
+    await s.page.waitForFunction(() => document.querySelector('#result-h')?.textContent === 'Out of tries');
+    const refusedSave = await s.page.evaluate(() => ({
+      card: document.querySelector('.exam-result')?.textContent.replace(/\s+/g, ' ').trim(),
+      again: document.querySelector('.exam-result .result-line [data-exam-again]')?.textContent,
+      locked: !!document.querySelector('.exam-result [data-exam-locked]'),
+      retake: !!document.querySelector('[data-retake]')
+    }));
+    if (!refusedSave.locked || refusedSave.retake || refusedSave.again !== '.') failures.push(`exam after a refused save should lock with no retake: ${JSON.stringify(refusedSave)}`);
+    if (!/No tries left\. Ask a mentor to reset this exam\./.test(refusedSave.card || '') || !/Best score 50%\. Pass mark 75%\./.test(refusedSave.card || '') || /\d+ tr(y|ies) left/.test(refusedSave.card || '')) failures.push(`exam after a refused save reads "${refusedSave.card}"`);
+    if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${name}-exam-refused-save.png`, fullPage: true });
+
+    // Retake pressed on a stale card: the tries ran out since it painted, so the card locks instead
+    // of serving questions whose score could not be saved.
+    await s.page.goto(BASE + `#/learn/${UNTRIED_2}/exam`);
+    const firstTry = await takeExam(s.page, UNTRIED_2, { wrong: 4 });
+    if (!/Keep going/.test(firstTry) || !/2 tries left/.test(firstTry)) failures.push(`first try on ${UNTRIED_2}: ${firstTry}`);
+    await s.page.waitForFunction((id) => import('/assets/js/state.js').then(({ store }) => store.lessons?.[id]?.attempts === 1), UNTRIED_2);
+    await useUpTries(s.page, UNTRIED_2);
+    await s.page.click('[data-retake]');
+    await s.page.waitForFunction(() => document.querySelector('#result-h')?.textContent === 'Out of tries');
+    if (await s.page.$('#q-text')) failures.push('retake with the tries used elsewhere: no questions should be served');
+    if (await s.page.$('[data-retake]')) failures.push('retake with the tries used elsewhere: the retake button should go');
+
     await s.page.goto(BASE + `#/mentor/player/${DEMO_STUDENT}`);
     await s.page.waitForSelector('[data-player-lessons]');
     const rowSel = '[data-lesson-row="how-the-market-works"]';
@@ -344,12 +455,19 @@ for (const [name, viewport, scheme] of [
       note: document.querySelector('[data-lessons-note]')?.textContent.trim(),
       passedRow: document.querySelector('[data-lesson-row="what-is-a-stock"] [data-lesson-status]')?.textContent.trim(),
       passedReset: !!document.querySelector('[data-reset-exam="what-is-a-stock"]'),
-      resets: document.querySelectorAll('[data-reset-exam]').length
+      resets: document.querySelectorAll('[data-reset-exam]').length,
+      resetIds: [...document.querySelectorAll('[data-reset-exam]')].map((b) => b.dataset.resetExam),
+      // Every Reset exam button sits on a row with tries used and no pass, and every such row has one.
+      resetsMatchRule: [...document.querySelectorAll('[data-lesson-row]')].every((row) => {
+        const status = row.querySelector('[data-lesson-status]')?.textContent.trim() || '';
+        const eligible = /^Best \d+% · [1-9] of 3 tries$/.test(status);
+        return eligible === !!row.querySelector('[data-reset-exam]');
+      })
     }), rowSel);
     if (beforeReset.status !== 'Best 63% · 3 of 3 tries' || !beforeReset.required || !beforeReset.locked || !beforeReset.reset) failures.push(`mentor player page before reset: ${JSON.stringify(beforeReset)}`);
     if (beforeReset.note !== 'Reset exam gives the student 3 new tries and keeps their best score.') failures.push(`mentor player page lessons note reads "${beforeReset.note}"`);
     if (beforeReset.passedRow !== 'Passed 100%' || beforeReset.passedReset) failures.push(`mentor player page passed row: "${beforeReset.passedRow}", reset button ${beforeReset.passedReset}`);
-    if (beforeReset.resets !== 1) failures.push(`mentor player page: ${beforeReset.resets} Reset exam buttons, expected 1 (only lessons with tries used and no pass)`);
+    if (!beforeReset.resets || !beforeReset.resetsMatchRule) failures.push(`mentor player page: Reset exam buttons on ${beforeReset.resetIds.join(', ') || 'no rows'}; expected one on every row with tries used and no pass, and nowhere else`);
     if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${name}-mentor-player-locked.png`, fullPage: true });
     await s.page.click('[data-reset-exam="how-the-market-works"]');
     await s.page.waitForSelector('.toast.good:has-text("Exam reset. Demo Student has 3 tries again.")');
@@ -385,6 +503,7 @@ for (const [name, viewport, scheme] of [
     await s.page.goto(BASE + '#/stock/KO');
     await s.page.waitForSelector('[data-trade="buy"]');
     if (await s.page.$('[data-trading-locked]')) failures.push('stock page should show Buy and Sell again once every required lesson is passed');
+    await staleRequired(s);
   } else {
     // Phone: answer one question with the keyboard, then leave the exam from the confirm sheet.
     // (order-types, which this fresh demo has not passed: a passed lesson's exam no longer opens.)
@@ -429,6 +548,7 @@ for (const [name, viewport, scheme] of [
     await s.page.goto(BASE + '#/stock/KO');
     await s.page.waitForSelector('[data-trade="buy"]');
     if (await s.page.$('[data-trading-locked]')) failures.push(`${name}: restoring the required list should open trading again`);
+    await staleRequired(s);
   }
 
   if (s.errors.length) failures.push(...s.errors.map((e) => `${name} console: ${e}`));
@@ -487,4 +607,4 @@ if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel with roster activity, admins, and required lessons, trade flow, trading locked until the required lessons pass, lesson exams with 3 tries and a mentor reset, lesson videos, and a touch phone`);
+console.log(`ok: ${ROUTES.length} pages at two widths, mentor panel with roster activity, admins (the last admin's hint), required lessons (named Select all buttons, picks kept through a rules save), trade flow, trading locked until the required lessons pass, a stale required lesson on Home, lesson exams with 3 tries, a refused save, a stale retake, and a mentor reset, lesson videos, and a touch phone`);

@@ -3,6 +3,7 @@ import { html, raw, $, $$, esc, n } from '../lib/dom.js';
 import { money, pctSigned, trend, etDayYear, ago, etWhen, activity, activityCounts } from '../lib/format.js';
 import { icon, MARK } from '../lib/icons.js';
 import { toast, copyText, openSheet, confirmSheet, sheetIsOpen } from '../lib/ui.js';
+import { currentPath } from '../lib/router.js';
 import { store, isDemo, loadSession } from '../state.js';
 import { pageHead, footer, empty, demoBanner } from './common.js';
 import { rulesList } from './account.js';
@@ -29,7 +30,8 @@ function toLocalInput(ts) {
 }
 
 function statusChipFor(g) {
-  return g.status === 'active' ? html`<span class="chip up">Active</span>` : g.status === 'paused' ? html`<span class="chip warn">Paused</span>` : html`<span class="chip">Ended</span>`;
+  const [cls, label] = g.status === 'active' ? ['chip up', 'Active'] : g.status === 'paused' ? ['chip warn', 'Paused'] : ['chip', 'Ended'];
+  return html`<span class="${cls}" data-status-chip>${label}</span>`;
 }
 
 // ------------------------------------------------------------------ auth
@@ -409,6 +411,15 @@ function requiredCountText(count) {
   return count === 0 ? 'No lessons required' : count === 1 ? '1 lesson required' : `${count} lessons required`;
 }
 
+// "Select all in Market Basics": the track's name tells the four buttons apart for a screen reader.
+function trackAllLabel(track, all) {
+  return `${all ? 'Clear all' : 'Select all'} in ${track.title}`;
+}
+
+// Picks in the Required lessons form that are not saved yet, kept while the same game page redraws
+// (a demo fill, or a change to this mentor's admin standing), keyed by game id.
+const pendingPicks = new Map();
+
 function adminsPanel(g) {
   const admin = canAdmin(g);
   const admins = Array.isArray(g.admins) ? g.admins : [];
@@ -419,9 +430,10 @@ function adminsPanel(g) {
         ${admins.length
           ? html`<div class="list" data-admin-list>${admins.map((a) => html`<div class="list-row" style="grid-template-columns: minmax(0,1fr) auto">
               <span class="who"><b>${a.display_name || a.email}</b>${a.display_name ? html`<span>${a.email}</span>` : ''}</span>
-              ${admin ? html`<button class="btn ghost small" type="button" data-admin-remove="${a.email}" data-name="${a.display_name || a.email}" ${admins.length <= 1 ? raw('disabled title="A game needs at least one admin."') : ''}>Remove</button>` : ''}
+              ${admin ? html`<button class="btn ghost small" type="button" data-admin-remove="${a.email}" data-name="${a.display_name || a.email}" aria-label="Remove ${a.display_name || a.email} as an admin" ${admins.length <= 1 ? raw('disabled aria-describedby="admin-last-hint"') : ''}>Remove</button>` : ''}
             </div>`)}</div>`
           : html`<p class="faint" style="font-size:var(--step--1)">No admins right now, so every mentor can change this game.</p>`}
+        ${admin && admins.length === 1 ? html`<p class="muted" style="font-size:var(--step--1)" id="admin-last-hint" data-admin-last-hint>A game needs at least one admin. Add another admin before removing this one.</p>` : ''}
         ${admin
           ? html`<form id="admin-form" class="stack" novalidate>
               <div class="field"><label for="adm-email">Add an admin by email</label>
@@ -438,7 +450,7 @@ function lessonsPanel(g) {
   const off = admin ? '' : 'disabled';
   const required = new Set(Array.isArray(g.required_lessons) ? g.required_lessons : []);
   return html`
-      <div class="panel-head"><h3>Required lessons</h3><span class="faint" style="font-size:var(--step--1)" data-required-count>${requiredCountText(required.size)}</span></div>
+      <div class="panel-head"><h3>Required lessons</h3><span class="faint" style="font-size:var(--step--1)" data-required-count aria-live="polite">${requiredCountText(required.size)}</span></div>
       <form id="lessons-form" class="stack" novalidate style="gap:16px">
         <p class="muted" style="font-size:var(--step--1)">Students cannot trade until they pass every required lesson. Markets, portfolio, leaderboard, and Learn stay open to them.</p>
         ${[...required].some((id) => !lessonById(id)) ? html`<div class="banner gold" role="note" data-lessons-stale>${raw(icon('lock'))}<div class="grow">This game requires a lesson that is no longer in the course, which keeps students from trading. ${admin ? 'Save the required lessons to remove it.' : 'An admin can save the required lessons to remove it.'}</div></div>` : ''}
@@ -448,7 +460,7 @@ function lessonsPanel(g) {
             const all = lessons.every((l) => required.has(l.id));
             return html`<div class="stack" style="gap:10px; align-content:start" data-track="${t.id}">
               <div class="split" style="min-height:34px"><span class="eyebrow">${t.title}</span>
-                ${admin ? html`<button class="btn ghost small" type="button" data-track-all="${t.id}">${all ? 'Clear all' : 'Select all'}</button>` : ''}</div>
+                ${admin ? html`<button class="btn ghost small" type="button" data-track-all="${t.id}" aria-label="${trackAllLabel(t, all)}">${all ? 'Clear all' : 'Select all'}</button>` : ''}</div>
               ${lessons.map((l) => html`<label class="check"><input type="checkbox" data-lesson-check="${l.id}" ${required.has(l.id) ? 'checked' : ''} ${off}><span>${l.title}</span></label>`)}
             </div>`;
           })}
@@ -594,25 +606,53 @@ async function gameDetail({ params, rerender }) {
         return false;
       };
 
-      // The count line, the Not saved note, and each Select all label follow the checkboxes.
-      const syncLessonsForm = () => {
+      // The page head, the status controls, and the reset form follow the game after a change made
+      // in place, so the rest of the page (and any unsaved picks in the lessons form) stays put.
+      const syncGame = () => {
+        const h1 = $('.page-head h1', el);
+        if (h1) h1.textContent = g.name;
+        const lede = $('.page-head .lede', el);
+        if (lede) lede.textContent = gameLede(g, roster);
+        const chip = $('[data-status-chip]', el);
+        if (chip) chip.outerHTML = statusChipFor(g).toString();
+        for (const b of $$('[data-status]', el)) b.setAttribute('aria-pressed', String(b.dataset.status === g.status));
+        const same = $('#rs-cash option[value=""]', el);
+        if (same) same.textContent = `Same cash (${money(g.starting_cash, { whole: true })})`;
+      };
+
+      // The checked lesson ids, and whether they differ from the saved list.
+      const picks = () => {
         const checked = new Set($$('[data-lesson-check]', el).filter((c) => c.checked).map((c) => c.dataset.lessonCheck));
         const saved = new Set(Array.isArray(g.required_lessons) ? g.required_lessons : []);
-        const dirty = checked.size !== saved.size || [...checked].some((id) => !saved.has(id));
+        return { checked, dirty: checked.size !== saved.size || [...checked].some((id) => !saved.has(id)) };
+      };
+
+      // The count line, the Not saved note, and each Select all button follow the checkboxes.
+      const syncLessonsForm = () => {
+        const { checked, dirty } = picks();
         const count = $('[data-required-count]', el);
         if (count) count.textContent = requiredCountText(checked.size);
         const note = $('[data-lessons-dirty]', el);
         if (note) note.hidden = !dirty;
         for (const b of $$('[data-track-all]', el)) {
-          b.textContent = lessonsForTrack(b.dataset.trackAll).every((l) => checked.has(l.id)) ? 'Clear all' : 'Select all';
+          const track = TRACKS.find((t) => t.id === b.dataset.trackAll);
+          if (!track) continue;
+          const all = lessonsForTrack(track.id).every((l) => checked.has(l.id));
+          b.textContent = all ? 'Clear all' : 'Select all';
+          b.setAttribute('aria-label', trackAllLabel(track, all));
         }
       };
 
+      // Status, announcement, and rules save in place: a redraw would drop unsaved lesson picks.
       const save = async (patch, msg) => {
         try {
           await api.updateGame(g.id, patch);
           toast(msg, 'good');
-          rerender();
+          Object.assign(g, patch);
+          if (!(await refreshGame())) return;
+          syncGame();
+          last = '';
+          await pollRoster({ force: true });
         } catch (err) {
           toast(err.message, 'bad');
         }
@@ -681,7 +721,8 @@ async function gameDetail({ params, rerender }) {
                   await api.resetPin(pin.dataset.pin, v);
                   close();
                   toast('PIN updated', 'good');
-                  rerender();
+                  last = '';
+                  await pollRoster({ force: true });
                 } catch (err) {
                   sheet.querySelector('#np-err').textContent = err.message;
                 }
@@ -704,7 +745,8 @@ async function gameDetail({ params, rerender }) {
                   await api.renamePlayer(rn.dataset.rename, sheet.querySelector('#rn').value.trim());
                   close();
                   toast('Name updated', 'good');
-                  rerender();
+                  last = '';
+                  await pollRoster({ force: true });
                 } catch (err) {
                   sheet.querySelector('#rn-err').textContent = err.message;
                 }
@@ -720,7 +762,8 @@ async function gameDetail({ params, rerender }) {
           try {
             await api.removePlayer(rm.dataset.remove);
             toast('Player removed');
-            rerender();
+            last = '';
+            await pollRoster({ force: true });
           } catch (err) {
             toast(err.message, 'bad');
           }
@@ -788,6 +831,8 @@ async function gameDetail({ params, rerender }) {
             const cash = $('#rs-cash', el).value;
             await api.resetGame(g.id, cash ? Number(cash) : null);
             toast('Game reset', 'good');
+            // A reset touches every panel (and in the demo, the whole sample game), so the page
+            // redraws; unsaved lesson picks come back through pendingPicks.
             rerender();
           } catch (err) {
             toast(err.message, 'bad');
@@ -799,10 +844,24 @@ async function gameDetail({ params, rerender }) {
         if (e.target instanceof Element && e.target.matches('[data-lesson-check]')) syncLessonsForm();
       });
 
+      // Picks kept across a redraw of this page come back, with the count and note to match.
+      const kept = pendingPicks.get(g.id);
+      pendingPicks.delete(g.id);
+      if (kept && canAdmin(g)) {
+        for (const c of $$('[data-lesson-check]', el)) c.checked = kept.has(c.dataset.lessonCheck);
+        syncLessonsForm();
+      }
+
       const timer = setInterval(() => {
         if (!document.hidden) pollRoster();
       }, isDemo() ? 4000 : 10000);
-      return () => clearInterval(timer);
+      return () => {
+        clearInterval(timer);
+        // A redraw of this same page keeps unsaved picks. Leaving the page drops them.
+        const { checked, dirty } = picks();
+        if (dirty && currentPath().replace(/\/$/, '') === `/mentor/game/${g.id}`) pendingPicks.set(g.id, checked);
+        else pendingPicks.delete(g.id);
+      };
     }
   };
 }

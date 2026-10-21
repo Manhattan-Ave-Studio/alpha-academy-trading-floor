@@ -166,7 +166,7 @@ export async function render() {
             ${required.length ? html`<div class="split"><span class="muted">Required before trading</span><span class="data ${locked ? 'gold' : 'up'}">${required.length - left.length} of ${required.length} passed</span></div>` : ''}
             ${next ? html`<a class="lesson-card" href="#/learn/${next.id}">
                 <span class="badge">${lessonNumber(next)}</span>
-                <span><b>${next.title}</b>${locked ? html` <span class="chip gold small">Required</span>` : ''}<br><span class="meta">${next.summary}</span></span>
+                <span><b>${next.title}</b>${left.some((l) => l.id === next.id) ? html` <span class="chip gold small" data-required-chip>Required</span>` : ''}<br><span class="meta">${next.summary}</span></span>
                 <span class="meta">${next.minutes} min</span></a>` : html`<p class="muted">Every lesson passed. Try the calculators next.</p>`}
           </div>
         </section>

@@ -2,8 +2,9 @@
 --
 -- Each game lists its admins, chosen from the mentors. Whoever creates a game is its first admin.
 -- Only admins change a game's settings, manage its players, assign required lessons, or reset a
--- student's exam. Every mentor can still open any game and its roster. A game whose admins are all
--- gone (their accounts deleted) is open to every mentor, so no game is ever stranded.
+-- student's exam. Every mentor can still open any game and its roster. A game with no admins left
+-- (none of them is a mentor any longer, or its creator had no mentor login when this ran) is open
+-- to every mentor, so no game is ever stranded.
 --
 -- Admins pick required lessons for a game. A student in that game cannot place orders until every
 -- required lesson is passed (best exam score of 75 or better, PASS_MARK in assets/js/data/lessons.js).
@@ -21,7 +22,8 @@
 
 create table public.game_admins (
   game_id uuid not null references public.games (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
+  -- An admin is a mentor. Removing the mentor row (or the account behind it) removes the admin row.
+  user_id uuid not null references public.mentors (user_id) on delete cascade,
   added_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   primary key (game_id, user_id)
@@ -158,7 +160,10 @@ declare
   v_user uuid;
 begin
   perform private.assert_game_admin(p_game_id);
-  if not exists (select 1 from public.games where id = p_game_id) then
+  -- Lock the game so changes to its admins or lessons run one at a time (two removals at once
+  -- could otherwise leave no admin, and two saves could mix their lists).
+  perform 1 from public.games where id = p_game_id for update;
+  if not found then
     raise exception 'Game not found.';
   end if;
   select u.id into v_user
@@ -196,7 +201,10 @@ declare
   v_pos int := 0;
 begin
   perform private.assert_game_admin(p_game_id);
-  if not exists (select 1 from public.games where id = p_game_id) then
+  -- Lock the game so changes to its admins or lessons run one at a time (two removals at once
+  -- could otherwise leave no admin, and two saves could mix their lists).
+  perform 1 from public.games where id = p_game_id for update;
+  if not found then
     raise exception 'Game not found.';
   end if;
   if array_length(v_ids, 1) > 50 then

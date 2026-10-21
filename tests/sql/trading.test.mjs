@@ -707,3 +707,23 @@ test('a game whose admins are all gone is open to every mentor', async () => {
   const [row] = await h.sql(`select added_by from public.game_admins where game_id = $1`, [game.id]);
   assert.equal(row.added_by, mentor.id);
 });
+
+test('an admin who is no longer a mentor drops off the game, which opens to every mentor when none is left', async () => {
+  // mentor2's account was deleted in the test above, so a fresh mentor covers the game here.
+  const cover = await h.createUser({ email: 'cover@example.org' });
+  assert.equal(await h.rpc1(cover, 'claim_mentor', { p_code: 'brooklyn-alphas-2026', p_display_name: 'Bro. Cover' }), true);
+  const solo = await h.rpc1(mentor, 'create_game', { p_name: 'Solo Admin Game', p_starting_cash: 1000 });
+  const [row] = await h.sql('select user_id from public.game_admins where game_id = $1', [solo.id]);
+  assert.equal(row.user_id, mentor.id);
+  await h.sql('delete from public.mentors where user_id = $1', [mentor.id]);
+  const left = await h.sql('select count(*)::int n from public.game_admins where game_id = $1', [solo.id]);
+  assert.equal(left[0].n, 0, 'losing mentor status removes the admin row, account or not');
+  const games = await h.rpc1(cover, 'mentor_games');
+  const seen = games.find((g) => g.id === solo.id);
+  assert.equal(seen.is_admin, true, 'a game with no admins is open to any mentor');
+  assert.deepEqual(seen.admins, []);
+  await h.rpc1(cover, 'update_game', { p_game_id: solo.id, p_patch: JSON.stringify({ announcement: 'Covered' }) });
+  await h.rpc(cover, 'set_game_admin', { p_game_id: solo.id, p_email: 'cover@example.org', p_on: true });
+  await h.sql('insert into public.mentors (user_id) values ($1) on conflict do nothing', [mentor.id]);
+  await rejects(h.rpc1(mentor, 'update_game', { p_game_id: solo.id, p_patch: JSON.stringify({ announcement: 'Back' }) }), /admins can change it/);
+});

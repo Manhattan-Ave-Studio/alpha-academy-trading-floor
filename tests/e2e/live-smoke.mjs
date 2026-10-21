@@ -4,8 +4,11 @@
 // A mentor creates a login, unlocks the panel, syncs data, creates a game, and makes a lesson
 // required. A student joins on a phone, is locked out of trading until they pass that lesson's
 // exam (the server refuses an order sent anyway), buys a stock, places a limit order, then rejoins
-// on a second device with the same name and PIN. The mentor sees it all and resets an exam. A
-// second mentor can open the game but not change it until the first mentor makes them an admin.
+// on a second device with the same name and PIN. A lesson the mentor requires while the student
+// has a ticket open reaches the ticket through the server's refusal, then Learn and the stock
+// page, with no reload. The mentor sees it all and resets an exam. A second mentor can open the
+// game but not change it until the first mentor makes them an admin, and the only admin's Remove
+// button points at a visible hint until then.
 //
 //   npx playwright install chromium   (once)
 //   node tests/e2e/live-smoke.mjs
@@ -132,12 +135,17 @@ await m.page.waitForSelector('[data-admins-panel]');
 const fresh = await m.page.evaluate(() => ({
   admins: [...document.querySelectorAll('[data-admin-list] .list-row')].map((r) => r.textContent.replace(/\s+/g, ' ').trim()),
   removeOff: document.querySelector('[data-admin-remove]')?.disabled ?? null,
+  hint: document.querySelector('[data-admin-last-hint]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+  hintShown: (document.querySelector('[data-admin-last-hint]')?.getClientRects().length ?? 0) > 0,
+  hintTarget: document.getElementById(document.querySelector('[data-admin-remove]')?.getAttribute('aria-describedby') || '')?.hasAttribute('data-admin-last-hint') ?? false,
   count: document.querySelector('[data-required-count]')?.textContent.trim() ?? null,
   checked: document.querySelectorAll('[data-lesson-check]:checked').length,
   saveOff: document.querySelector('[data-lessons-save]')?.disabled ?? null
 }));
 expect(fresh.admins.length === 1 && /Bro\. Tester/.test(fresh.admins[0]) && /mentor@gil1906\.org/.test(fresh.admins[0]), `Admins panel lists the creator with their email: ${JSON.stringify(fresh.admins)}`);
 expect(fresh.removeOff === true, `the only admin's Remove button is disabled (${fresh.removeOff})`);
+expect(fresh.hint === 'A game needs at least one admin. Add another admin before removing this one.' && fresh.hintShown, `the only admin's Remove button comes with a visible hint: "${fresh.hint}" (shown: ${fresh.hintShown})`);
+expect(fresh.hintTarget, "the only admin's Remove button points at the hint through aria-describedby");
 expect(fresh.count === 'No lessons required' && fresh.checked === 0, `a new game requires nothing: "${fresh.count}", ${fresh.checked} checked`);
 expect(fresh.saveOff === false, 'the admin can save required lessons');
 await m.page.check('[data-lesson-check="order-types"]');
@@ -257,6 +265,45 @@ await s.page.click('[data-submit]');
 await s.page.waitForSelector('.sheet .banner', { timeout: 15000 });
 expect((await s.page.textContent('.sheet .banner')).includes('Order placed'), 'limit order is placed and waits');
 await s.page.click('.sheet [data-close]:not(a)');
+
+// ---------------------------------------------------------------- a change while the student is in the app
+// The admin requires a second lesson while the student has a ticket at the review step. The server
+// refuses the order and the ticket swaps Submit for the lock note; the note's Learn link opens a
+// Learn page that already knows; the stock page locks on its next open. No visit to Home, no
+// reload. Clearing the list reopens trading the same way.
+const SECOND = lessonById('what-is-a-stock');
+await s.page.click('[data-trade="buy"]');
+await s.page.fill('#t-qty', '1');
+await s.page.click('[data-review]');
+await s.page.waitForSelector('.sheet [data-submit]');
+await m.page.check('[data-lesson-check="what-is-a-stock"]');
+await m.page.click('[data-lessons-save]');
+await m.page.waitForSelector('.toast.good:has-text("Saved. 2 lessons required")', { timeout: 15000 });
+await saved('the second required lesson', `select lesson_id from public.game_lessons`, (rows) => rows.length === 2);
+const ordersBefore = (await server.sql(`select count(*)::int n from public.orders`))[0].n;
+await s.page.click('.sheet [data-submit]');
+await s.page.waitForSelector('.sheet [data-trading-locked]', { timeout: 15000 });
+const refusedTicket = await textOf(s.page, '.sheet [data-error]');
+expect(/Finish your required lessons before trading\. Open Learn to see what is left\./.test(refusedTicket || ''), `the ticket shows the server's refusal: "${refusedTicket}"`);
+expect((await s.page.$('.sheet [data-submit]')) === null, 'the refused ticket swaps Submit for the lock note');
+expect((await server.sql(`select count(*)::int n from public.orders`))[0].n === ordersBefore, 'the refused order is not recorded');
+if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/live-student-ticket-refused.png` });
+await s.page.click('.sheet [data-trading-locked] a[href="#/learn"]');
+await s.page.waitForSelector('[data-required-line]', { timeout: 15000 });
+const changedLine = await textOf(s.page, '[data-required-line]');
+expect(/Required before trading: 1 of 2 passed\./.test(changedLine || '') && (changedLine || '').includes(`Still to pass: ${SECOND.title}.`), `learn line after the admin's change: "${changedLine}"`);
+await s.page.goto(server.origin + '/#/stock/AAPL');
+await s.page.waitForSelector('[data-trading-locked]', { timeout: 15000 });
+expect((await s.page.$('[data-trade]')) === null, 'the stock page locks after the change without a visit to Home');
+await m.page.uncheck('[data-lesson-check="what-is-a-stock"]');
+await m.page.click('[data-lessons-save]');
+await m.page.waitForSelector('.toast.good:has-text("Saved. 1 lesson required")', { timeout: 15000 });
+await saved('the list back to one lesson', `select lesson_id from public.game_lessons`, (rows) => rows.length === 1);
+await s.page.goto(server.origin + '/#/learn');
+await s.page.waitForFunction(() => /all passed/.test(document.querySelector('[data-required-line]')?.textContent || ''), null, { timeout: 15000 });
+await s.page.goto(server.origin + '/#/stock/AAPL');
+await s.page.waitForSelector('[data-trade="buy"]', { timeout: 15000 });
+expect((await s.page.$('[data-trading-locked]')) === null, 'clearing the requirement reopens trading on the stock page');
 
 await s.page.goto(server.origin + '/#/orders');
 await s.page.waitForSelector('[data-cancel]');
@@ -393,10 +440,13 @@ await m.page.waitForFunction(() => document.querySelectorAll('[data-admin-list] 
 const adminList = await m.page.evaluate(() => ({
   rows: [...document.querySelectorAll('[data-admin-list] .list-row')].map((r) => r.textContent.replace(/\s+/g, ' ').trim()),
   removeOff: [...document.querySelectorAll('[data-admin-remove]')].map((b) => b.disabled),
+  hint: !!document.querySelector('[data-admin-last-hint]'),
+  described: [...document.querySelectorAll('[data-admin-remove]')].filter((b) => b.hasAttribute('aria-describedby')).length,
   head: document.querySelector('[data-admins-panel] .panel-head')?.textContent.replace(/\s+/g, ' ').trim()
 }));
 expect(adminList.rows.some((r) => /Bro\. Second/.test(r) && /second@gil1906\.org/.test(r)), `the new admin is listed: ${JSON.stringify(adminList.rows)}`);
 expect(adminList.removeOff.join() === 'false,false' && /2 admins/.test(adminList.head), `two admins, both removable: ${JSON.stringify(adminList)}`);
+expect(!adminList.hint && adminList.described === 0, `the last-admin hint goes once there are two admins: ${JSON.stringify(adminList)}`);
 expect((await server.sql(`select count(*)::int n from public.game_admins`))[0].n === 2, 'the server has two admins');
 
 // The second mentor's controls work now.
@@ -432,5 +482,5 @@ if (failures.length) {
   console.error('FAILED\n' + failures.map((f) => ' - ' + f).join('\n'));
   process.exit(1);
 }
-console.log('ok: live mode end to end (mentor signup, sync, search, new game, QR, admins panel, required lessons, join, trading locked until the lesson is passed with the server refusing an order, lesson exam with tries, trades, rules, orders, leaderboard, rejoin, roster with activity and the Required column, notes, exam reset, second mentor refused as a non-admin then added by email)');
+console.log('ok: live mode end to end (mentor signup, sync, search, new game, QR, admins panel with the last admin\'s hint, required lessons, join, trading locked until the lesson is passed with the server refusing an order, lesson exam with tries, trades, a lesson required while the student has a ticket open with the refusal locking the ticket and Learn and the stock page following without a reload, rules, orders, leaderboard, rejoin, roster with activity and the Required column, notes, exam reset, second mentor refused as a non-admin then added by email with the hint gone)');
 process.exit(0);

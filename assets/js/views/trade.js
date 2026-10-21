@@ -344,6 +344,11 @@ export function openTrade({ symbol, side = 'buy', name = '' }, onDone) {
             s.busy = false;
             s.error = err.message || 'The order did not go through.';
             paint();
+            // The database is the referee. It may have refused for a lock this screen could not see
+            // yet (an admin's change), so re-read the game and progress and let the note replace Submit.
+            const wasLocked = locked();
+            await refreshPlayer().catch(() => {});
+            if (locked() !== wasLocked) paint();
           }
         }
       });

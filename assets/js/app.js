@@ -5,7 +5,7 @@ import { route, start, navigate, currentPath, match } from './lib/router.js';
 import { toast, openSheet, installTermPopovers, sheetIsOpen } from './lib/ui.js';
 import { money, price as fmtPrice } from './lib/format.js';
 import { createApi } from './api/index.js';
-import { store, isDemo, loadSession, refreshMarket, refreshPlayer, mergeQuotes, playerId, savedTheme, applyTheme } from './state.js';
+import { store, isDemo, loadSession, refreshMarket, refreshPlayer, refreshGame, mergeQuotes, playerId, savedTheme, applyTheme } from './state.js';
 import { marketBadge, updateBindings, livePrice, liveChange } from './views/common.js';
 import * as Home from './views/home.js';
 import * as Markets from './views/markets.js';
@@ -277,7 +277,10 @@ async function tickOnce() {
       for (const c of chunks) mergeQuotes(await store.api.getQuotes(c));
     }
     if (playerId() && store.portfolio) {
-      store.portfolio = await store.api.getPortfolio(playerId());
+      // The game rides along with the portfolio, so an admin's change to the required lessons or
+      // the game status reaches this student's screens on the next tick.
+      const [portfolio] = await Promise.all([store.api.getPortfolio(playerId()), refreshGame().catch(() => {})]);
+      store.portfolio = portfolio;
     }
     updateBindings(document);
     if (view?.tick) view.tick();

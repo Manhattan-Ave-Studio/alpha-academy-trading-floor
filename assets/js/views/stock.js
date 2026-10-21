@@ -3,8 +3,8 @@ import { html, raw, n, $, $$ } from '../lib/dom.js';
 import { money, moneySigned, price as fmtPrice, pctSigned, trend, arrow, etTime, etDay, etDayYear, etIsoDate, etWhen, shares as fmtShares, compactMoney, compactNumber, number, ago } from '../lib/format.js';
 import { PriceChart } from '../lib/charts.js';
 import { icon } from '../lib/icons.js';
-import { term, toast } from '../lib/ui.js';
-import { store, quoteOf, mergeQuotes, playerId, isDemo } from '../state.js';
+import { term, toast, sheetIsOpen } from '../lib/ui.js';
+import { store, quoteOf, mergeQuotes, playerId, isDemo, refreshGame } from '../state.js';
 import { addDaysIso } from '../lib/calendar.js';
 import { tradingLocked } from '../data/lessons.js';
 import { symBadge, livePrice, liveChange, changeOf, footer, empty } from './common.js';
@@ -18,7 +18,8 @@ let lastMode = 'line';
 export async function render({ params, rerender }) {
   const api = store.api;
   const sym = params.sym.toUpperCase();
-  const [info, quotes] = await Promise.all([api.getSymbol(sym), api.getQuotes([sym]).catch(() => ({}))]);
+  // The game is re-read here so the trade bar follows the required lessons as the admins last saved them.
+  const [info, quotes] = await Promise.all([api.getSymbol(sym), api.getQuotes([sym]).catch(() => ({})), refreshGame().catch(() => {})]);
   mergeQuotes(quotes);
   if (!info) {
     return { html: html`<div class="panel">${empty(`We could not find ${sym}`, 'Check the ticker and try searching again.', html`<a class="btn" href="#/markets">Back to Markets</a>`)}</div>` };
@@ -275,6 +276,11 @@ export async function render({ params, rerender }) {
       return {
         destroy: () => chart.destroy(),
         tick: () => {
+          // The live loop refreshes the game; when that flips the lock, redraw so the trade bar agrees.
+          if (tradingLocked(store.current?.game, store.lessons) !== locked && !sheetIsOpen()) {
+            rerender();
+            return;
+          }
           if (range === '1D' || range === '1W') {
             const quote = quoteOf(sym);
             if (quote && current.length) {

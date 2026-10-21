@@ -22,7 +22,7 @@ function lessonRow(l, entry, { required, admin }) {
         ${examLocked(entry) ? html`<span class="chip warn" data-lesson-locked>Locked</span>` : ''}</div>
       <span class="${passed ? 'up' : entry ? 'gold' : 'faint'}" style="font-size:var(--step--1)" data-lesson-status ${entry?.completed_at ? raw(`title="${esc(etWhen(entry.completed_at))}"`) : ''}>${status}</span>
     </div>
-    ${admin && entry && !passed && used > 0 ? html`<button class="btn ghost small" type="button" data-reset-exam="${l.id}">Reset exam</button>` : ''}
+    ${admin && entry && !passed && used > 0 ? html`<button class="btn ghost small" type="button" data-reset-exam="${l.id}" aria-label="Reset exam: ${l.title}">Reset exam</button>` : ''}
   </div>`;
 }
 
@@ -94,7 +94,8 @@ export async function render({ params, mentorView = false }) {
           rx.disabled = true;
           try {
             const row = await api.resetExam(pid, id);
-            // The server returns the row with attempts back at zero; without it (older database), zero locally.
+            // The server returns the row with attempts back at zero. A database without the migration
+            // errors instead (the toast shows it); an empty answer keeps the entry with zero tries.
             lessons[id] = row || { ...(lessons[id] || {}), attempts: 0 };
             const old = el.querySelector(`[data-lesson-row="${id}"]`);
             if (old) old.outerHTML = lessonRow(lesson, lessons[id], rowOpts(lesson)).toString();

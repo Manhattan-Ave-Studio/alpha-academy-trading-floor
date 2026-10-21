@@ -5,7 +5,7 @@ import * as sim from '../engine/sim.js';
 import { validateOrder, applyFill, processOpenOrders, orderDecision, reservedCash, newId, OrderError, round2 } from '../engine/trading.js';
 import { UNIVERSE, universeEntry, BENCHMARK_SYMBOL } from '../data/universe.js';
 import { addDaysIso } from '../lib/calendar.js';
-import { passedCount, isPassed, requiredLeft, EXAM_TRIES } from '../data/lessons.js';
+import { passedCount, isPassed, EXAM_TRIES } from '../data/lessons.js';
 import { load, save, remove } from '../lib/storage.js';
 
 const KEY = 'aatf.demo.v1';
@@ -617,8 +617,9 @@ export class DemoApi {
       open_orders: r.is_me ? this.state.me.orders.filter((o) => o.status === 'open').length : 0,
       lessons_completed: r.is_me ? passedCount(this.state.me.lessons) : (parseInt(r.player_id.slice(-1), 10) * 3) % 11,
       lessons_required: required.length,
+      // Counts every required id, like private.lessons_left, so an id with no lesson stays unpassed.
       lessons_required_passed: r.is_me
-        ? required.length - requiredLeft(required, this.state.me.lessons).length
+        ? required.filter((id) => isPassed(this.state.me.lessons[id])).length
         : Math.min(required.length, parseInt(r.player_id.slice(-1), 10) % (required.length + 1)),
       last_active_at: r.is_me ? iso(now()) : iso(now() - (DEMO_IDLE_MINUTES[parseInt(r.player_id.slice(-1), 10)] ?? 90) * 60000),
       joined_at: this.game.starts_at,

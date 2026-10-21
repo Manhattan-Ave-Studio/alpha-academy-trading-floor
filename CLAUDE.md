@@ -14,7 +14,7 @@ The full handover is `docs/HANDOVER.md`. Read it before any change bigger than a
 
 ```bash
 npm install          # test tools only; the site has no runtime dependencies and no build step
-npm test             # 71 tests: SQL on PGlite, edge function, demo engine parity, lesson content, helpers, hosting build
+npm test             # 72 tests: SQL on PGlite, edge function, demo engine parity, lesson content, helpers, hosting build
 npm run dev          # http://localhost:5173
 npm run test:e2e     # demo browser smoke test; needs npm run dev running
 npm run test:live    # live mode end to end against a local Supabase stand-in on :5174
@@ -46,7 +46,7 @@ Browser tests: `SCREENSHOTS=dir` saves screenshots at phone and desktop widths; 
 - **New API method:** add it to both `LiveApi` and `DemoApi`, add a SQL test that also proves the wrong caller is refused, and teach `tests/support/live-server.mjs` any new Data API feature the client uses.
 - **Pass mark** is 75 in `PASS_MARK` in `assets/js/data/lessons.js` and in every `score >= 75` in SQL: `game_roster` (`20261011000400_people.sql`, and its redefinition in the modules migration), `lessons_left`, and `complete_lesson` (`20261021000100_modules_and_admins.sql`). Change them all.
 - **Exam tries** is 3 in two places: `EXAM_TRIES` in `assets/js/data/lessons.js` and `attempts >= 3` with its "all 3 tries" message in `complete_lesson` (`20261021000100_modules_and_admins.sql`). Change both; `tests/lib/lessons.test.mjs` fails when they disagree.
-- **Game admins.** A mentor function that changes a game or its players starts with `private.assert_game_admin(game_id)`, not `assert_mentor`; reads (`mentor_games`, `game_roster`, student pages) stay open to every mentor. The client reads `is_admin` from `mentorGames()` and disables what a non-admin cannot do, but the database decides, and a game with no admins left is open to every mentor. A new admin-only function needs a SQL test that a mentor who is not an admin is refused.
+- **Game admins.** A mentor function that changes a game or its players starts with `private.assert_game_admin(game_id)`, not `assert_mentor`; reads (`mentor_games`, `game_roster`, student pages) stay open to every mentor. The client reads `is_admin` from `mentorGames()` and disables what a non-admin cannot do, but the database decides, and a game with no admins left (none of them is a mentor any longer, or its creator had no mentor login when the migration ran) is open to every mentor. A new admin-only function needs a SQL test that a mentor who is not an admin is refused.
 - **Exams shuffle** question and choice order, so every question must stand alone. Each exam has exactly 8 questions.
 - **Lesson terms** must exist in `glossary.js`; `npm test` checks this along with exam answers, HTML balance, and dashes.
 - **Students are minors.** No analytics or trackers on student pages. Lesson videos play on the page through YouTube's privacy-enhanced player (youtube-nocookie.com), loaded only when a student presses Play: no thumbnails or player before that, and an Open on YouTube link beside each. `npm run test:e2e` fails if a lesson page contacts YouTube before Play.

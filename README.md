@@ -33,7 +33,7 @@ The site is plain HTML, CSS, and JavaScript (no build step), so it runs on GitHu
 - Limit, stop, and stop-limit orders are checked every minute against fresh prices. Day orders expire at the close; good-'til-canceled orders last up to 90 days.
 - Holidays and 1:00 p.m. early closes follow the NYSE calendar.
 - No short selling, margin, or options.
-- A game's admins can require lessons. A student in that game cannot place an order until every required lesson is passed. The database checks this on every order, and the app shows the lock on the home screen and the trade ticket.
+- A game's admins can require lessons. The database refuses a student's orders until every required lesson is recorded as passed, and the app shows the lock on the home screen and the trade ticket.
 
 ## Try it now (demo mode)
 
@@ -92,9 +92,9 @@ npx supabase link --project-ref YOUR-PROJECT-REF
 npx supabase db push          # runs the migrations
 ```
 
-Then run `supabase/seed.sql` in the SQL editor.
+Then run `supabase/seed.sql` in the SQL editor. The CLI records each migration it applies, so later updates can use `db push` too. A project created with option A has no such record, so `db push` would try to run every file again and stop at the first table that already exists; `docs/HANDOVER.md` section 9.9 has the one-time repair that lets an option A project switch to the CLI.
 
-If the site is already live and a later migration arrives with an update, deploy the site first and then run the new file. The app works with either database in the meantime.
+If the site is already live and a later migration arrives with an update, deploy the site first and then run the new file the same way you created the database: paste it into the SQL editor (option A) or `npx supabase db push` (option B). Until the new file runs, the parts of the app that depend on it fail with a server error that names a function the database cannot find. For the October 2026 update, those are the Admins, Required lessons, and Reset exam controls; students keep trading and taking exams.
 
 ### 3. Turn on student sign-in
 
@@ -224,7 +224,7 @@ Notes:
 
 ```bash
 npm install            # test tools only; the site itself has no dependencies
-npm test               # 71 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, lesson helpers, and the hosting build
+npm test               # 72 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, lesson helpers, and the hosting build
 npm run test:e2e       # browser smoke test of every page at phone and desktop widths (needs `npm run dev` running and `npx playwright install chromium`)
 npm run test:live      # live mode in a real browser against a local stand-in for Supabase (mentor signup, new game, required lesson, join, trades, rejoin, roster, a second mentor added as an admin)
 npm run build:preview  # single-file demo for sharing a preview link
@@ -249,7 +249,8 @@ GitHub Actions runs all of these tests on every pull request and every merge to 
 | Search only finds about 100 companies | Press **Sync symbols and calendar now** in the mentor panel. |
 | A mentor's confirmation email never arrives | Turn off "Confirm email" or add the mentor under Authentication, then Users (step 3). |
 | Calls to the function fail with 401 | JWT verification is still on for `market`; turn it off (step 5). |
-| "Only this game's admins can change it" | You have a mentor login but are not one of that game's admins. Ask an admin to add you by email under **Admins** on the game's page. A game whose admins' accounts are all gone is open to every mentor. |
+| A server error that a function could not be found, naming `set_game_lessons`, `set_game_admin`, or `reset_exam` | The site is newer than the database. Run the latest file in `supabase/migrations` the same way you created the database (step 2). |
+| "Only this game's admins can change it" | You have a mentor login but are not one of that game's admins. Ask an admin to add you by email under **Admins** on the game's page. A game with no admins left (none of them is a mentor any longer, or its creator had no mentor login when the October 2026 update ran) is open to every mentor. |
 | "No tries left" on a lesson exam | The student missed that exam three times. An admin of their game opens the student's page from the roster and presses **Reset exam** next to the lesson. The student gets 3 new tries and keeps their best score. |
 
 ## Files
