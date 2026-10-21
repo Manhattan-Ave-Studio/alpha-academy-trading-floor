@@ -7,12 +7,17 @@ import { lessonById } from '../../assets/js/data/lessons.js';
  * @param {import('playwright').Page} page  a page already showing #/learn/<id>/exam
  * @param {string} lessonId
  * @param {{ wrong?: number }} options  how many questions to answer incorrectly (from the first)
- * @returns {Promise<string>} the result text
+ * @returns {Promise<string>} the result text (the headline, the score line, the tries line, and the buttons)
  */
 export async function takeExam(page, lessonId, { wrong = 0 } = {}) {
   const lesson = lessonById(lessonId);
   if (!lesson) throw new Error(`unknown lesson ${lessonId}`);
-  await page.waitForSelector('#q-text');
+  // An exam that is locked (no tries left) or already passed shows a result card instead of a
+  // question. Say so instead of waiting out the question selector.
+  const opening = await page.waitForSelector('#q-text, .exam-result:not([data-exam-checking])');
+  if (await opening.evaluate((el) => el.classList.contains('exam-result'))) {
+    throw new Error(`the ${lessonId} exam did not open: ${(await opening.textContent()).replace(/\s+/g, ' ').trim()}`);
+  }
   for (let i = 0; i < lesson.exam.length; i++) {
     await page.waitForFunction((n) => (document.querySelector('.q-count')?.textContent || '').startsWith(`Question ${n} `), i + 1);
     const text = (await page.textContent('#q-text')).trim();

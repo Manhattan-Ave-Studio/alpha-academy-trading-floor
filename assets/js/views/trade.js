@@ -2,8 +2,13 @@
 import { html, raw, n, $, $$ } from '../lib/dom.js';
 import { money, price as fmtPrice, shares as fmtShares, pctSigned, trend, arrow, etWeekdayTime } from '../lib/format.js';
 import { openSheet, toast, term } from '../lib/ui.js';
+import { icon } from '../lib/icons.js';
 import { store, quoteOf, mergeQuotes, playerId, refreshPlayer, isDemo } from '../state.js';
+import { tradingLocked } from '../data/lessons.js';
 import { changeOf } from './common.js';
+
+/** Same message as the trading engine and the database, for a ticket that is already open. */
+const LESSONS_MESSAGE = 'Finish your required lessons before trading. Open Learn to see what is left.';
 
 const EXPLAIN = {
   market: { buy: 'Buys right away at the current price.', sell: 'Sells right away at the current price.' },
@@ -36,6 +41,15 @@ export function openTrade({ symbol, side = 'buy', name = '' }, onDone) {
   const position = () => store.portfolio?.positions?.find((p) => p.symbol === sym) ?? null;
   const q = () => quoteOf(sym);
   const px = () => n(q()?.price);
+  // Required lessons can change while the ticket is open, so the lock is checked at each paint.
+  const locked = () => tradingLocked(store.current?.game, store.lessons);
+
+  function lockedNote() {
+    return html`<div class="banner gold" role="note" data-trading-locked>${raw(icon('lock'))}
+      <div class="grow">Trading opens after you pass your required lessons.</div>
+      <a class="btn small" href="#/learn" data-close>${raw(icon('learn'))} Learn</a>
+    </div>`;
+  }
 
   function prefill() {
     const p = px();
@@ -67,6 +81,7 @@ export function openTrade({ symbol, side = 'buy', name = '' }, onDone) {
 
   function localCheck() {
     const e = estimate();
+    if (locked()) return LESSONS_MESSAGE;
     if (s.mode === 'dollars' && canUseDollars()) {
       if (!(n(s.notional) > 0)) return 'Enter a dollar amount.';
     } else {
@@ -152,7 +167,7 @@ export function openTrade({ symbol, side = 'buy', name = '' }, onDone) {
       <div class="summary-box" data-summary></div>
       ${marketNote() ? html`<p class="form-note">${marketNote()}</p>` : ''}
       <p class="form-error" data-error role="alert">${s.error}</p>
-      <button type="button" class="btn block ${s.side}" data-review>Review ${s.side === 'buy' ? 'buy' : 'sell'} order</button>`;
+      ${locked() ? lockedNote() : html`<button type="button" class="btn block ${s.side}" data-review>Review ${s.side === 'buy' ? 'buy' : 'sell'} order</button>`}`;
   }
 
   function summaryHtml() {
@@ -199,8 +214,9 @@ export function openTrade({ symbol, side = 'buy', name = '' }, onDone) {
       </div>
       ${marketNote() ? html`<p class="form-note">${marketNote()}</p>` : ''}
       <p class="form-error" data-error role="alert">${s.error}</p>
+      ${locked() ? lockedNote() : ''}
       <div class="row-wrap">
-        <button type="button" class="btn ${s.side}" data-submit ${s.busy ? 'disabled' : ''}>${s.busy ? 'Sending...' : `Submit ${s.side} order`}</button>
+        ${locked() ? '' : html`<button type="button" class="btn ${s.side}" data-submit ${s.busy ? 'disabled' : ''}>${s.busy ? 'Sending...' : `Submit ${s.side} order`}</button>`}
         <button type="button" class="btn secondary" data-edit>Edit</button>
       </div>`;
   }
@@ -328,6 +344,11 @@ export function openTrade({ symbol, side = 'buy', name = '' }, onDone) {
             s.busy = false;
             s.error = err.message || 'The order did not go through.';
             paint();
+            // The database is the referee. It may have refused for a lock this screen could not see
+            // yet (an admin's change), so re-read the game and progress and let the note replace Submit.
+            const wasLocked = locked();
+            await refreshPlayer().catch(() => {});
+            if (locked() !== wasLocked) paint();
           }
         }
       });

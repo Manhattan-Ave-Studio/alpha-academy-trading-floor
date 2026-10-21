@@ -5,7 +5,7 @@ import * as sim from '../engine/sim.js';
 import { validateOrder, applyFill, processOpenOrders, orderDecision, reservedCash, newId, OrderError, round2 } from '../engine/trading.js';
 import { UNIVERSE, universeEntry, BENCHMARK_SYMBOL } from '../data/universe.js';
 import { addDaysIso } from '../lib/calendar.js';
-import { passedCount } from '../data/lessons.js';
+import { passedCount, isPassed, EXAM_TRIES } from '../data/lessons.js';
 import { load, save, remove } from '../lib/storage.js';
 
 const KEY = 'aatf.demo.v1';
@@ -25,6 +25,9 @@ const BOTS = [
 
 const delay = (v) => Promise.resolve(v);
 const now = () => Date.now();
+// Bump when the saved demo shape changes. Version 1 states are upgraded in place; older ones are reseeded.
+const DEMO_VERSION = 2;
+const DEMO_ADMINS = [{ user_id: 'demo-mentor', email: 'mentor@example.com', display_name: 'Demo mentor' }];
 // Minutes since each sample classmate was last active (by the last digit of the id), so the mentor
 // roster shows every activity state: active now, in the last hour, and earlier.
 const DEMO_IDLE_MINUTES = [2, 1, 3, 18, 42, 140, 400, 1500, 4400, 9000];
@@ -55,12 +58,22 @@ export class DemoApi {
 
   async init() {
     this.state = load(KEY);
-    if (!this.state || this.state.version !== 1) this.state = this.seed();
+    if (this.state && this.state.version === 1) this.upgrade();
+    if (!this.state || this.state.version !== DEMO_VERSION) this.state = this.seed();
     this.tick();
   }
 
   persist() {
     save(KEY, this.state);
+  }
+
+  // Version 1 saved games predate required lessons and exam tries.
+  upgrade() {
+    const s = this.state;
+    s.game.required_lessons = s.game.required_lessons || ['what-is-a-stock'];
+    for (const e of Object.values(s.me.lessons || {})) if (e.attempts == null) e.attempts = 1;
+    s.version = DEMO_VERSION;
+    this.persist();
   }
 
   // ------------------------------------------------------------ seed
@@ -87,7 +100,9 @@ export class DemoApi {
       announcement: 'Welcome to the Fall Market Challenge. Research before you buy, and use the "Why this trade?" note so we can talk through your picks at Saturday session.',
       benchmark_symbol: BENCHMARK_SYMBOL,
       benchmark_start_price: close(BENCHMARK_SYMBOL, startDay),
-      created_at: iso(startAt - 86400000)
+      created_at: iso(startAt - 86400000),
+      // Lessons every player must pass before trading. The demo student has passed this one.
+      required_lessons: ['what-is-a-stock']
     };
     const me = {
       id: ME,
@@ -102,8 +117,8 @@ export class DemoApi {
       ],
       watchlist: ['SPOT', 'RBLX', 'KO', 'DIS'],
       lessons: {
-        'what-is-a-stock': { score: 100, completed_at: iso(startAt + 3600000) },
-        'how-the-market-works': { score: 63, completed_at: iso(startAt + 7200000) }
+        'what-is-a-stock': { score: 100, completed_at: iso(startAt + 3600000), attempts: 1 },
+        'how-the-market-works': { score: 63, completed_at: iso(startAt + 7200000), attempts: 2 }
       }
     };
     const days = sim.tradingDaysBetween(startDay, sim.etIso(t), t);
@@ -135,7 +150,7 @@ export class DemoApi {
       status: 'open', stop_triggered: false, filled_qty: null, filled_price: null, filled_at: null, reason: null,
       note: 'Waiting for a dip before buying a dividend stock.', created_at: iso(t - 86400000), updated_at: iso(t - 86400000)
     });
-    const state = { version: 1, created_at: iso(t), game, me, mentorMode: false };
+    const state = { version: DEMO_VERSION, created_at: iso(t), game, me, mentorMode: false };
     this.state = state;
     save(KEY, state);
     return state;
@@ -480,7 +495,8 @@ export class DemoApi {
       quote,
       input: { ...input, symbol },
       now: t,
-      priceOf: this.priceOf
+      priceOf: this.priceOf,
+      progress: st.lessons
     });
     const nowIso = iso(t);
     const order = {
@@ -523,11 +539,31 @@ export class DemoApi {
     return playerId === ME ? { ...this.state.me.lessons } : {};
   }
 
+  // Same rules and messages as complete_lesson in the modules migration.
   async completeLesson(playerId, lessonId, score) {
-    if (playerId !== ME) return;
-    const prev = this.state.me.lessons[lessonId];
-    if (!prev || score > prev.score) this.state.me.lessons[lessonId] = { score, completed_at: iso(now()) };
+    if (playerId !== ME) throw new Error('That player does not belong to this account.');
+    const lessons = this.state.me.lessons;
+    const prev = lessons[lessonId];
+    if (prev && isPassed(prev)) throw new Error('You already passed this lesson, so there is nothing to retake.');
+    if (prev && (prev.attempts ?? 1) >= EXAM_TRIES) throw new Error(`You have used all ${EXAM_TRIES} tries for this exam. Ask a mentor to reset it.`);
+    const clean = Math.max(0, Math.min(100, Math.round(score)));
+    const best = prev ? Math.max(Number(prev.score), clean) : clean;
+    lessons[lessonId] = {
+      score: best,
+      completed_at: !prev || clean > Number(prev.score) ? iso(now()) : prev.completed_at,
+      attempts: prev ? (prev.attempts ?? 1) + 1 : 1
+    };
     this.persist();
+    return { ...lessons[lessonId] };
+  }
+
+  async resetExam(playerId, lessonId) {
+    if (playerId !== ME) throw new Error('Sample classmates stay as they are in the demo. On your live site, admins can reset any student.');
+    const entry = this.state.me.lessons[lessonId];
+    if (!entry) throw new Error('This student has not taken that exam yet.');
+    entry.attempts = 0;
+    this.persist();
+    return { ...entry };
   }
 
   async heartbeat() {}
@@ -536,7 +572,20 @@ export class DemoApi {
 
   async mentorGames() {
     const lb = await this.getLeaderboard();
-    return [{ ...this.game, player_count: lb.length, active_this_week: lb.length, trades: lb.reduce((s, r) => s + r.trades, 0) }];
+    return [{
+      ...this.game, player_count: lb.length, active_this_week: lb.length, trades: lb.reduce((s, r) => s + r.trades, 0),
+      is_admin: true, admins: DEMO_ADMINS, required_lessons: [...(this.game.required_lessons || [])]
+    }];
+  }
+
+  async setGameLessons(gameId, lessonIds) {
+    this.game.required_lessons = [...new Set(lessonIds || [])];
+    this.persist();
+    return [...this.game.required_lessons];
+  }
+
+  async setGameAdmin() {
+    throw new Error('Adding admins needs the live setup. In the demo, you are the only mentor.');
   }
 
   async createGame() {
@@ -556,6 +605,7 @@ export class DemoApi {
 
   async roster() {
     const lb = await this.getLeaderboard();
+    const required = this.game.required_lessons || [];
     return lb.map((r) => ({
       player_id: r.player_id,
       display_name: r.display_name,
@@ -566,6 +616,11 @@ export class DemoApi {
       trades: r.trades,
       open_orders: r.is_me ? this.state.me.orders.filter((o) => o.status === 'open').length : 0,
       lessons_completed: r.is_me ? passedCount(this.state.me.lessons) : (parseInt(r.player_id.slice(-1), 10) * 3) % 11,
+      lessons_required: required.length,
+      // Counts every required id, like private.lessons_left, so an id with no lesson stays unpassed.
+      lessons_required_passed: r.is_me
+        ? required.filter((id) => isPassed(this.state.me.lessons[id])).length
+        : Math.min(required.length, parseInt(r.player_id.slice(-1), 10) % (required.length + 1)),
       last_active_at: r.is_me ? iso(now()) : iso(now() - (DEMO_IDLE_MINUTES[parseInt(r.player_id.slice(-1), 10)] ?? 90) * 60000),
       joined_at: this.game.starts_at,
       locked: false

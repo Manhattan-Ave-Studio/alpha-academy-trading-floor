@@ -3,9 +3,10 @@ import { html, raw, n, $, $$ } from '../lib/dom.js';
 import { money, moneySigned, price as fmtPrice, pctSigned, trend, arrow, etTime, etDay, etDayYear, etIsoDate, etWhen, shares as fmtShares, compactMoney, compactNumber, number, ago } from '../lib/format.js';
 import { PriceChart } from '../lib/charts.js';
 import { icon } from '../lib/icons.js';
-import { term, toast } from '../lib/ui.js';
-import { store, quoteOf, mergeQuotes, playerId, isDemo } from '../state.js';
+import { term, toast, sheetIsOpen } from '../lib/ui.js';
+import { store, quoteOf, mergeQuotes, playerId, isDemo, refreshGame } from '../state.js';
 import { addDaysIso } from '../lib/calendar.js';
+import { tradingLocked } from '../data/lessons.js';
 import { symBadge, livePrice, liveChange, changeOf, footer, empty } from './common.js';
 import { openTrade } from './trade.js';
 
@@ -17,7 +18,8 @@ let lastMode = 'line';
 export async function render({ params, rerender }) {
   const api = store.api;
   const sym = params.sym.toUpperCase();
-  const [info, quotes] = await Promise.all([api.getSymbol(sym), api.getQuotes([sym]).catch(() => ({}))]);
+  // The game is re-read here so the trade bar follows the required lessons as the admins last saved them.
+  const [info, quotes] = await Promise.all([api.getSymbol(sym), api.getQuotes([sym]).catch(() => ({})), refreshGame().catch(() => {})]);
   mergeQuotes(quotes);
   if (!info) {
     return { html: html`<div class="panel">${empty(`We could not find ${sym}`, 'Check the ticker and try searching again.', html`<a class="btn" href="#/markets">Back to Markets</a>`)}</div>` };
@@ -27,6 +29,7 @@ export async function render({ params, rerender }) {
   const watching = store.watchlist.includes(sym);
   const isEtf = info.asset_type === 'etf';
   const c = changeOf(q);
+  const locked = tradingLocked(store.current?.game, store.lessons);
 
   const posCard = pos
     ? html`<section class="panel">
@@ -75,10 +78,15 @@ export async function render({ params, rerender }) {
           <div class="chart tall" id="stock-chart" style="margin-top:12px"></div>
         </section>
 
-        <div class="trade-bar sticky">
-          <button class="btn buy" type="button" data-trade="buy">Buy ${sym}</button>
-          <button class="btn sell" type="button" data-trade="sell" ${pos ? '' : 'disabled title="You do not own this yet"'}>Sell</button>
-        </div>
+        ${locked
+          ? html`<div class="trade-bar sticky locked" role="note" data-trading-locked>
+              ${raw(icon('lock'))}<span class="grow">Trading opens after you pass your required lessons.</span>
+              <a class="btn small" href="#/learn">${raw(icon('learn'))} Learn</a>
+            </div>`
+          : html`<div class="trade-bar sticky">
+              <button class="btn buy" type="button" data-trade="buy">Buy ${sym}</button>
+              <button class="btn sell" type="button" data-trade="sell" ${pos ? '' : 'disabled title="You do not own this yet"'}>Sell</button>
+            </div>`}
 
         ${posCard}
 
@@ -268,6 +276,11 @@ export async function render({ params, rerender }) {
       return {
         destroy: () => chart.destroy(),
         tick: () => {
+          // The live loop refreshes the game; when that flips the lock, redraw so the trade bar agrees.
+          if (tradingLocked(store.current?.game, store.lessons) !== locked && !sheetIsOpen()) {
+            rerender();
+            return;
+          }
           if (range === '1D' || range === '1W') {
             const quote = quoteOf(sym);
             if (quote && current.length) {

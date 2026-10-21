@@ -5,7 +5,7 @@ import { PriceChart } from '../lib/charts.js';
 import { icon } from '../lib/icons.js';
 import { term } from '../lib/ui.js';
 import { store, playerId, gameId, mergeQuotes, quoteOf, isDemo } from '../state.js';
-import { LESSONS, passedCount, nextToStudy, lessonNumber } from '../data/lessons.js';
+import { LESSONS, passedCount, nextToStudy, lessonNumber, lessonById, requiredLeft, requiredUnknown, tradingLocked } from '../data/lessons.js';
 import { quoteRow, symBadge, livePrice, liveChange, demoBanner, footer, changeOf, empty } from './common.js';
 
 export async function performanceSeries(pid, game, summary, totalNow) {
@@ -65,11 +65,17 @@ export async function render() {
   }
   const lessons = await api.lessonProgress(pid).catch(() => ({}));
   store.lessons = lessons;
+  // The summary carries the game's required lessons; keep the trade screens reading the same copy.
+  if (store.current && game) store.current.game = game;
 
   const me = board.find((r) => r.is_me);
   const bench = summary.benchmark;
   const done = passedCount(lessons);
-  const next = nextToStudy(lessons);
+  const required = (game.required_lessons || []).filter((id) => lessonById(id));
+  const left = requiredLeft(required, lessons);
+  const unknown = requiredUnknown(game.required_lessons);
+  const locked = tradingLocked(game, lessons);
+  const next = left[0] || nextToStudy(lessons);
   const movers = store.featured
     .filter((f) => f.quote && f.asset_type !== 'etf')
     .map((f) => ({ ...f, c: changeOf(f.quote).pct }))
@@ -81,6 +87,10 @@ export async function render() {
 
   const markup = html`
     ${game.announcement ? html`<div class="banner gold" role="note">${raw(icon('mentor'))}<div class="grow"><span class="eyebrow">From your mentors</span><br>${game.announcement}</div></div>` : ''}
+    ${locked ? html`<div class="banner gold" role="note" data-trading-locked>${raw(icon('lock'))}
+      <div class="grow"><span class="eyebrow">Required lessons</span><br>${left.length ? html`Trading opens after you pass: ${left.map((l, i) => html`${i ? ', ' : ''}<a href="#/learn/${l.id}">${l.title}</a>`)}.` : ''}${unknown.length ? ' This game also requires a lesson that is no longer in the course. Ask a mentor to save the required lessons again.' : ''}</div>
+      <a class="btn small" href="#/learn">${raw(icon('learn'))} Learn</a>
+    </div>` : ''}
     ${demoBanner()}
     <div class="grid-2">
       <div class="stack" style="gap:20px">
@@ -153,9 +163,10 @@ export async function render() {
           <div class="stack">
             <div class="split"><span class="muted">${done} of ${LESSONS.length} lessons passed</span><span class="data">${Math.round((done / LESSONS.length) * 100)}%</span></div>
             <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${LESSONS.length}" aria-valuenow="${done}"><span style="width:${(done / LESSONS.length) * 100}%"></span></div>
+            ${required.length ? html`<div class="split"><span class="muted">Required before trading</span><span class="data ${locked ? 'gold' : 'up'}">${required.length - left.length} of ${required.length} passed</span></div>` : ''}
             ${next ? html`<a class="lesson-card" href="#/learn/${next.id}">
                 <span class="badge">${lessonNumber(next)}</span>
-                <span><b>${next.title}</b><br><span class="meta">${next.summary}</span></span>
+                <span><b>${next.title}</b>${left.some((l) => l.id === next.id) ? html` <span class="chip gold small" data-required-chip>Required</span>` : ''}<br><span class="meta">${next.summary}</span></span>
                 <span class="meta">${next.minutes} min</span></a>` : html`<p class="muted">Every lesson passed. Try the calculators next.</p>`}
           </div>
         </section>

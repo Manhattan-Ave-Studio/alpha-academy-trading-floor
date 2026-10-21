@@ -2,6 +2,8 @@
 // supabase/migrations/20261011000300_trading.sql (same checks, same math, same messages),
 // and tests/engine/engine.test.mjs runs the same scenarios as the SQL tests.
 
+import { tradingLocked } from '../data/lessons.js';
+
 export class OrderError extends Error {}
 
 export const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
@@ -43,9 +45,10 @@ export function portfolioValue(state, priceOf) {
 
 /**
  * Validates and normalizes an order. Throws OrderError with the same wording as the database.
- * ctx: { game, state, symbolInfo, quote, input, now, priceOf }
+ * ctx: { game, state, symbolInfo, quote, input, now, priceOf, progress }
+ * progress is the player's lesson progress, checked against game.required_lessons.
  */
-export function validateOrder({ game, state, symbolInfo, quote, input, now, priceOf }) {
+export function validateOrder({ game, state, symbolInfo, quote, input, now, priceOf, progress = {} }) {
   const side = input.side;
   const type = input.order_type;
   const tif = input.time_in_force || 'day';
@@ -59,6 +62,7 @@ export function validateOrder({ game, state, symbolInfo, quote, input, now, pric
   if (game.status === 'paused') throw new OrderError('Trading is paused for this game. Check back with your mentor.');
   if (game.status === 'ended' || (game.ends_at && now >= Date.parse(game.ends_at))) throw new OrderError('This game has ended. Trading is closed.');
   if (now < Date.parse(game.starts_at)) throw new OrderError('This game has not opened for trading yet.');
+  if (tradingLocked(game, progress)) throw new OrderError('Finish your required lessons before trading. Open Learn to see what is left.');
   if (!['buy', 'sell'].includes(side)) throw new OrderError('Choose Buy or Sell.');
   if (!['market', 'limit', 'stop', 'stop_limit'].includes(type)) throw new OrderError('Choose an order type.');
   if (!['day', 'gtc'].includes(tif)) throw new OrderError('Choose how long the order lasts: Day or Good til canceled.');

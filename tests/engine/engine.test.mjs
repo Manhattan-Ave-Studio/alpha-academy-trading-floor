@@ -6,7 +6,8 @@ import { validateOrder, applyFill, orderDecision, processOpenOrders, reservedCas
 
 const near = (a, b, eps = 0.0001) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
 
-function setup(overrides = {}) {
+// progress is the player's lesson progress, checked against game.required_lessons.
+function setup(overrides = {}, progress = {}) {
   const game = {
     status: 'active', starts_at: '2026-10-12T13:00:00Z', ends_at: null, allow_fractional: true,
     max_position_pct: null, min_share_price: 1, commission: 0, ...overrides
@@ -16,7 +17,7 @@ function setup(overrides = {}) {
   const priceOf = (s) => prices[s] ?? null;
   const now = Date.parse('2026-10-12T14:00:00Z');
   const place = (input, info = { tradable: true, asset_type: 'stock' }) => {
-    const clean = validateOrder({ game, state, symbolInfo: info, quote: { price: prices[input.symbol] }, input, now, priceOf });
+    const clean = validateOrder({ game, state, symbolInfo: info, quote: { price: prices[input.symbol] }, input, now, priceOf, progress });
     const o = { id: String(state.orders.length + 1), ...clean, status: 'open', stop_triggered: false, created_at: new Date(now).toISOString() };
     state.orders.unshift(o);
     const d = orderDecision(o, prices[o.symbol]);
@@ -25,7 +26,7 @@ function setup(overrides = {}) {
     return o;
   };
   const tick = () => processOpenOrders(state, priceOf, game, new Date(now).toISOString());
-  return { game, state, prices, place, tick, priceOf };
+  return { game, state, prices, place, tick, priceOf, progress };
 }
 
 test('market buy, limit buy, and sell stop match the database results', () => {
@@ -109,4 +110,29 @@ test('paused and ended games block trading with the database wording', () => {
   assert.throws(() => t.place({ symbol: 'AAPL', side: 'buy', order_type: 'market', qty: 1 }), /Trading is paused/);
   t.game.status = 'ended';
   assert.throws(() => t.place({ symbol: 'AAPL', side: 'buy', order_type: 'market', qty: 1 }), /has ended/);
+});
+
+test('required lessons close trading until they are passed, with the database wording', () => {
+  const locked = /Finish your required lessons before trading\. Open Learn to see what is left\./;
+  const t = setup({ required_lessons: ['what-is-a-stock', 'order-types'] }, { 'what-is-a-stock': { score: 90, completed_at: '2026-10-12T13:00:00Z' } });
+  t.prices.AAPL = 200;
+  const buy = (u = t) => u.place({ symbol: 'AAPL', side: 'buy', order_type: 'market', qty: 1 });
+  assert.throws(() => buy(), locked);
+  t.progress['order-types'] = { score: 74, attempts: 1 };
+  assert.throws(() => buy(), locked, 'a near miss does not count');
+  t.progress['order-types'] = { score: 75, attempts: 2 };
+  assert.equal(buy().status, 'filled', 'passing at exactly 75 opens trading');
+  near(t.state.cash, 99800);
+
+  const paused = setup({ required_lessons: ['order-types'], status: 'paused' });
+  paused.prices.AAPL = 200;
+  assert.throws(() => buy(paused), /Trading is paused/, 'the game status answers before the lessons check, as in place_order');
+
+  const open = setup({ required_lessons: [] });
+  open.prices.AAPL = 200;
+  assert.equal(buy(open).status, 'filled', 'a game that requires nothing never locks');
+  const older = setup();
+  older.prices.AAPL = 200;
+  assert.equal(older.game.required_lessons, undefined);
+  assert.equal(buy(older).status, 'filled', 'nor does a game saved before required lessons existed');
 });

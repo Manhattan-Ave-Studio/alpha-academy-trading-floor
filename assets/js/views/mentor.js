@@ -3,9 +3,11 @@ import { html, raw, $, $$, esc, n } from '../lib/dom.js';
 import { money, pctSigned, trend, etDayYear, ago, etWhen, activity, activityCounts } from '../lib/format.js';
 import { icon, MARK } from '../lib/icons.js';
 import { toast, copyText, openSheet, confirmSheet, sheetIsOpen } from '../lib/ui.js';
+import { currentPath } from '../lib/router.js';
 import { store, isDemo, loadSession } from '../state.js';
 import { pageHead, footer, empty, demoBanner } from './common.js';
 import { rulesList } from './account.js';
+import { TRACKS, LESSONS, lessonsForTrack, lessonById } from '../data/lessons.js';
 
 function joinUrl(code) {
   const base = store.config.publicUrl || (location.protocol.startsWith('http') ? location.origin + location.pathname : '');
@@ -28,7 +30,8 @@ function toLocalInput(ts) {
 }
 
 function statusChipFor(g) {
-  return g.status === 'active' ? html`<span class="chip up">Active</span>` : g.status === 'paused' ? html`<span class="chip warn">Paused</span>` : html`<span class="chip">Ended</span>`;
+  const [cls, label] = g.status === 'active' ? ['chip up', 'Active'] : g.status === 'paused' ? ['chip warn', 'Paused'] : ['chip', 'Ended'];
+  return html`<span class="${cls}" data-status-chip>${label}</span>`;
 }
 
 // ------------------------------------------------------------------ auth
@@ -195,7 +198,7 @@ async function dashboard({ navigate, rerender }) {
       <div class="panel-head"><h3>Running a session</h3></div>
       <ol class="prose" style="font-size:var(--step-0)">
         <li>Open the game and put the QR code on screen. Students scan it, pick a display name, and make a PIN.</li>
-        <li>Assign one lesson and its quick check before anyone trades. "Order types" and "Researching a company" make a strong first week.</li>
+        <li>Open the game and pick its required lessons. Students cannot trade until they pass them. "Order types" and "Researching a company" make a strong first week.</li>
         <li>Ask every student to write a "Why this trade?" note. Read the notes in each student's page and talk through two or three of them.</li>
         <li>End with the leaderboard and the S&amp;P 500 line. Ask who is ahead of the index, and why most professionals are not.</li>
       </ol>
@@ -343,7 +346,7 @@ function refreshActivity(panel, roster) {
 const rosterData = (roster) => JSON.stringify(roster.map(({ last_active_at, ...r }) => r));
 
 // Redraw the roster, keeping the table's sideways scroll and the focused control.
-function redrawRoster(panel, roster, canExport) {
+function redrawRoster(panel, roster, canExport, admin) {
   const focused = document.activeElement;
   let refocus = null;
   if (focused && panel.contains(focused)) {
@@ -353,19 +356,20 @@ function redrawRoster(panel, roster, canExport) {
     else if (focused.matches('a[href]')) refocus = `a[href="${CSS.escape(focused.getAttribute('href'))}"]`;
   }
   const scroll = panel.querySelector('.table-wrap')?.scrollLeft || 0;
-  panel.innerHTML = rosterPanel(roster, canExport).toString();
+  panel.innerHTML = rosterPanel(roster, canExport, admin).toString();
   const wrap = panel.querySelector('.table-wrap');
   if (wrap) wrap.scrollLeft = scroll;
   if (refocus) panel.querySelector(refocus)?.focus({ preventScroll: true });
 }
 
-function rosterPanel(roster, canExport) {
+function rosterPanel(roster, canExport, admin) {
+  const off = admin ? '' : 'disabled';
   return html`
       <div class="panel-head"><h3>Roster</h3>${canExport && roster.length ? html`<button class="btn ghost small" type="button" data-export>Download CSV</button>` : ''}</div>
       ${roster.length ? activitySummary(roster) : ''}
       ${roster.length
         ? html`<div class="table-wrap"><table class="table">
-            <thead><tr><th>Player</th><th>Last active</th><th class="r">Value</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Open</th><th class="r">Lessons</th><th></th></tr></thead>
+            <thead><tr><th>Player</th><th>Last active</th><th class="r">Value</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Open</th><th class="r">Lessons</th><th class="r">Required</th><th></th></tr></thead>
             <tbody>${roster.map((r) => html`<tr>
               <td><a class="sym" href="#/mentor/player/${r.player_id}">${r.display_name}</a>${r.locked ? html` <span class="chip warn">Locked</span>` : ''}</td>
               <td>${activityCell(r)}</td>
@@ -374,13 +378,98 @@ function rosterPanel(roster, canExport) {
               <td class="r">${r.trades}</td>
               <td class="r">${r.open_orders}</td>
               <td class="r">${r.lessons_completed}</td>
+              <td class="r ${requiredDone(r) ? 'up' : ''}" data-tries-cell>${requiredCell(r)}</td>
               <td class="r"><div class="row-wrap" style="justify-content:flex-end; flex-wrap:nowrap">
-                <button class="btn ghost small" type="button" data-pin="${r.player_id}" data-name="${r.display_name}">Reset PIN</button>
-                <button class="btn ghost small" type="button" data-rename="${r.player_id}" data-name="${r.display_name}">Rename</button>
-                <button class="btn ghost small" type="button" data-remove="${r.player_id}" data-name="${r.display_name}" style="color:var(--down)">Remove</button>
+                <button class="btn ghost small" type="button" data-pin="${r.player_id}" data-name="${r.display_name}" ${off}>Reset PIN</button>
+                <button class="btn ghost small" type="button" data-rename="${r.player_id}" data-name="${r.display_name}" ${off}>Rename</button>
+                <button class="btn ghost small" type="button" data-remove="${r.player_id}" data-name="${r.display_name}" style="color:var(--down)" ${off}>Remove</button>
               </div></td>
             </tr>`)}</tbody></table></div>`
         : empty('No players yet', 'Share the code or QR. Players appear here as they join.')}`;
+}
+
+// ------------------------------------------------------------------ admins and required lessons
+
+// Admins change a game; every mentor can open it. A game whose admins are all gone, or a database
+// that does not carry the admins migration yet, reports no flag and is open to every mentor.
+function canAdmin(g) {
+  return g.is_admin !== false;
+}
+
+// Roster rows from a database without the migration have no counts: nothing is required then.
+function requiredCell(r) {
+  const need = Number(r.lessons_required || 0);
+  return need ? `${Number(r.lessons_required_passed || 0)} of ${need}` : 'none';
+}
+
+function requiredDone(r) {
+  const need = Number(r.lessons_required || 0);
+  return need > 0 && Number(r.lessons_required_passed || 0) >= need;
+}
+
+function requiredCountText(count) {
+  return count === 0 ? 'No lessons required' : count === 1 ? '1 lesson required' : `${count} lessons required`;
+}
+
+// "Select all in Market Basics": the track's name tells the four buttons apart for a screen reader.
+function trackAllLabel(track, all) {
+  return `${all ? 'Clear all' : 'Select all'} in ${track.title}`;
+}
+
+// Picks in the Required lessons form that are not saved yet, kept while the same game page redraws
+// (a demo fill, or a change to this mentor's admin standing), keyed by game id.
+const pendingPicks = new Map();
+
+function adminsPanel(g) {
+  const admin = canAdmin(g);
+  const admins = Array.isArray(g.admins) ? g.admins : [];
+  return html`
+      <div class="panel-head"><h3>Admins</h3><span class="faint" style="font-size:var(--step--1)">${admins.length === 1 ? '1 admin' : `${admins.length} admins`}</span></div>
+      <div class="stack">
+        <p class="muted" style="font-size:var(--step--1)">Admins change this game's rules, players, and required lessons. Every mentor can open it and see the roster.</p>
+        ${admins.length
+          ? html`<div class="list" data-admin-list>${admins.map((a) => html`<div class="list-row" style="grid-template-columns: minmax(0,1fr) auto">
+              <span class="who"><b>${a.display_name || a.email}</b>${a.display_name ? html`<span>${a.email}</span>` : ''}</span>
+              ${admin ? html`<button class="btn ghost small" type="button" data-admin-remove="${a.email}" data-name="${a.display_name || a.email}" aria-label="Remove ${a.display_name || a.email} as an admin" ${admins.length <= 1 ? raw('disabled aria-describedby="admin-last-hint"') : ''}>Remove</button>` : ''}
+            </div>`)}</div>`
+          : html`<p class="faint" style="font-size:var(--step--1)">No admins right now, so every mentor can change this game.</p>`}
+        ${admin && admins.length === 1 ? html`<p class="muted" style="font-size:var(--step--1)" id="admin-last-hint" data-admin-last-hint>A game needs at least one admin. Add another admin before removing this one.</p>` : ''}
+        ${admin
+          ? html`<form id="admin-form" class="stack" novalidate>
+              <div class="field"><label for="adm-email">Add an admin by email</label>
+                <input id="adm-email" class="input" type="email" autocomplete="off" placeholder="brother@example.com" data-admin-email>
+                <span class="hint">They need a mentor login and the mentor code first.</span></div>
+              <button class="btn secondary small" type="submit" style="justify-self:start" data-admin-add>Add admin</button>
+            </form>`
+          : html`<p class="muted" data-admin-note>Only admins can change this game. Ask one of them to add you.</p>`}
+      </div>`;
+}
+
+function lessonsPanel(g) {
+  const admin = canAdmin(g);
+  const off = admin ? '' : 'disabled';
+  const required = new Set(Array.isArray(g.required_lessons) ? g.required_lessons : []);
+  return html`
+      <div class="panel-head"><h3>Required lessons</h3><span class="faint" style="font-size:var(--step--1)" data-required-count aria-live="polite">${requiredCountText(required.size)}</span></div>
+      <form id="lessons-form" class="stack" novalidate style="gap:16px">
+        <p class="muted" style="font-size:var(--step--1)">Students cannot trade until they pass every required lesson. Markets, portfolio, leaderboard, and Learn stay open to them.</p>
+        ${[...required].some((id) => !lessonById(id)) ? html`<div class="banner gold" role="note" data-lessons-stale>${raw(icon('lock'))}<div class="grow">This game requires a lesson that is no longer in the course, which keeps students from trading. ${admin ? 'Save the required lessons to remove it.' : 'An admin can save the required lessons to remove it.'}</div></div>` : ''}
+        <div class="grid-2" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap:18px 24px">
+          ${TRACKS.map((t) => {
+            const lessons = lessonsForTrack(t.id);
+            const all = lessons.every((l) => required.has(l.id));
+            return html`<div class="stack" style="gap:10px; align-content:start" data-track="${t.id}">
+              <div class="split" style="min-height:34px"><span class="eyebrow">${t.title}</span>
+                ${admin ? html`<button class="btn ghost small" type="button" data-track-all="${t.id}" aria-label="${trackAllLabel(t, all)}">${all ? 'Clear all' : 'Select all'}</button>` : ''}</div>
+              ${lessons.map((l) => html`<label class="check"><input type="checkbox" data-lesson-check="${l.id}" ${required.has(l.id) ? 'checked' : ''} ${off}><span>${l.title}</span></label>`)}
+            </div>`;
+          })}
+        </div>
+        <div class="row-wrap">
+          <button class="btn secondary" type="submit" data-lessons-save ${off}>Save required lessons</button>
+          <span class="faint" style="font-size:var(--step--1)" data-lessons-dirty hidden>Not saved yet</span>
+        </div>
+      </form>`;
 }
 
 async function gameDetail({ params, rerender }) {
@@ -392,11 +481,16 @@ async function gameDetail({ params, rerender }) {
   const url = joinUrl(g.join_code);
   const qr = qrSvg(url);
   const canExport = !store.config.preview;
+  const admin = canAdmin(g);
+  const off = admin ? '' : 'disabled';
 
   const markup = html`
     <div class="split"><a class="btn ghost small" href="#/mentor">${raw(icon('back'))} Mentor panel</a>${statusChipFor(g)}</div>
     ${pageHead(g.name, gameLede(g, roster), html`<a class="btn secondary" href="#/leaderboard">Leaderboard</a>`)}
     ${demoBanner()}
+    ${admin ? '' : html`<div class="banner" role="note" data-admin-banner>${raw(icon('lock'))}
+      <div class="grow"><b>You are not an admin of this game.</b> You can see the roster and every student's page. The Admins panel below lists who can add you.</div>
+    </div>`}
     <div class="grid-2" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr))">
       <section class="panel">
         <div class="panel-head"><h3>Students join here</h3></div>
@@ -416,45 +510,51 @@ async function gameDetail({ params, rerender }) {
         <div class="panel-head"><h3>Game status</h3></div>
         <div class="stack">
           <div class="seg" role="group" aria-label="Game status">
-            <button type="button" data-status="active" aria-pressed="${g.status === 'active'}">Active</button>
-            <button type="button" data-status="paused" aria-pressed="${g.status === 'paused'}">Paused</button>
-            <button type="button" data-status="ended" aria-pressed="${g.status === 'ended'}">Ended</button>
+            <button type="button" data-status="active" aria-pressed="${g.status === 'active'}" ${off}>Active</button>
+            <button type="button" data-status="paused" aria-pressed="${g.status === 'paused'}" ${off}>Paused</button>
+            <button type="button" data-status="ended" aria-pressed="${g.status === 'ended'}" ${off}>Ended</button>
           </div>
           <p class="muted" style="font-size:var(--step--1)">Paused stops new trades and fills until you switch back. Ended closes trading and cancels open orders.</p>
           <form id="ann-form" class="stack" novalidate>
             <div class="field"><label for="ann">Announcement on every student's home screen</label>
-              <textarea id="ann" class="input" maxlength="500">${g.announcement || ''}</textarea></div>
-            <button class="btn secondary small" type="submit" style="justify-self:start">Save announcement</button>
+              <textarea id="ann" class="input" maxlength="500" ${off}>${g.announcement || ''}</textarea></div>
+            <button class="btn secondary small" type="submit" style="justify-self:start" ${off}>Save announcement</button>
           </form>
         </div>
       </section>
     </div>
 
-    <section class="panel flush" id="roster-panel">${rosterPanel(roster, canExport)}</section>
+    <section class="panel flush" id="roster-panel">${rosterPanel(roster, canExport, admin)}</section>
+
+    <section class="panel" id="lessons-panel" data-lessons-panel>${lessonsPanel(g)}</section>
+
+    <div class="grid-2" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr))">
+    <section class="panel" id="admins-panel" data-admins-panel>${adminsPanel(g)}</section>
 
     <section class="panel">
       <div class="panel-head"><h3>Rules</h3><span class="faint" style="font-size:var(--step--1)">Changes apply to new orders right away</span></div>
       <form id="rules-form" class="stack" novalidate style="gap:16px">
         <div class="calc-grid">
-          <div class="field"><label for="r-name">Game name</label><input id="r-name" class="input" maxlength="80" value="${g.name}"></div>
-          <div class="field"><label for="r-end">End date</label><input id="r-end" class="input" type="date" value="${toLocalInput(g.ends_at)}"></div>
+          <div class="field"><label for="r-name">Game name</label><input id="r-name" class="input" maxlength="80" value="${g.name}" ${off}></div>
+          <div class="field"><label for="r-end">End date</label><input id="r-end" class="input" type="date" value="${toLocalInput(g.ends_at)}" ${off}></div>
           <div class="field"><label for="r-max">Single-stock limit</label>
-            <select id="r-max" class="input">${[['', 'No limit'], ['10', '10%'], ['20', '20%'], ['25', '25%'], ['35', '35%'], ['50', '50%']].map(([v, l]) => html`<option value="${v}" ${String(g.max_position_pct == null ? '' : Number(g.max_position_pct)) === v ? 'selected' : ''}>${l}</option>`)}</select></div>
-          <div class="field"><label for="r-min">Lowest share price</label><div class="input-affix"><span class="affix">$</span><input id="r-min" class="input" inputmode="decimal" value="${Number(g.min_share_price).toFixed(2)}"></div></div>
-          <div class="field"><label for="r-fee">Commission per trade</label><div class="input-affix"><span class="affix">$</span><input id="r-fee" class="input" inputmode="decimal" value="${Number(g.commission).toFixed(2)}"></div></div>
+            <select id="r-max" class="input" ${off}>${[['', 'No limit'], ['10', '10%'], ['20', '20%'], ['25', '25%'], ['35', '35%'], ['50', '50%']].map(([v, l]) => html`<option value="${v}" ${String(g.max_position_pct == null ? '' : Number(g.max_position_pct)) === v ? 'selected' : ''}>${l}</option>`)}</select></div>
+          <div class="field"><label for="r-min">Lowest share price</label><div class="input-affix"><span class="affix">$</span><input id="r-min" class="input" inputmode="decimal" value="${Number(g.min_share_price).toFixed(2)}" ${off}></div></div>
+          <div class="field"><label for="r-fee">Commission per trade</label><div class="input-affix"><span class="affix">$</span><input id="r-fee" class="input" inputmode="decimal" value="${Number(g.commission).toFixed(2)}" ${off}></div></div>
         </div>
-        <label class="check"><input id="r-frac" type="checkbox" ${g.allow_fractional ? 'checked' : ''}><span>Allow fractional shares and dollar orders</span></label>
-        <label class="check"><input id="r-share" type="checkbox" ${g.show_holdings ? 'checked' : ''}><span>Let classmates see each other's holdings</span></label>
-        <button class="btn secondary" type="submit" style="justify-self:start">Save rules</button>
+        <label class="check"><input id="r-frac" type="checkbox" ${g.allow_fractional ? 'checked' : ''} ${off}><span>Allow fractional shares and dollar orders</span></label>
+        <label class="check"><input id="r-share" type="checkbox" ${g.show_holdings ? 'checked' : ''} ${off}><span>Let classmates see each other's holdings</span></label>
+        <button class="btn secondary" type="submit" style="justify-self:start" ${off}>Save rules</button>
       </form>
     </section>
+    </div>
 
     <section class="panel" style="border-color: color-mix(in srgb, var(--down) 40%, var(--line))">
       <div class="panel-head"><h3>Reset the game</h3></div>
       <form id="reset-form" class="row-wrap" novalidate>
         <div class="field"><label for="rs-cash">Restart everyone with</label>
-          <select id="rs-cash" class="input"><option value="">Same cash (${money(g.starting_cash, { whole: true })})</option><option value="10000">$10,000</option><option value="25000">$25,000</option><option value="100000">$100,000</option></select></div>
-        <button class="btn danger" type="submit" style="align-self:flex-end">Reset game</button>
+          <select id="rs-cash" class="input" ${off}><option value="">Same cash (${money(g.starting_cash, { whole: true })})</option><option value="10000">$10,000</option><option value="25000">$25,000</option><option value="100000">$100,000</option></select></div>
+        <button class="btn danger" type="submit" style="align-self:flex-end" ${off}>Reset game</button>
       </form>
       <p class="faint" style="font-size:var(--step--1); margin-top:8px">Clears every holding, order, and chart history. Players and lesson progress stay. Useful after a practice round.</p>
     </section>
@@ -463,11 +563,96 @@ async function gameDetail({ params, rerender }) {
   return {
     html: markup,
     mount(el) {
+      // Students show up on the roster while the join code is on screen.
+      // Activity dots, labels, and counts update in place on every pass.
+      let last = rosterData(roster);
+      let busy = false;
+      const pollRoster = async ({ force = false } = {}) => {
+        if (busy && !force) return;
+        busy = true;
+        try {
+          const next = await api.roster(g.id);
+          const panel = $('#roster-panel', el);
+          if (!el.isConnected || !panel) return;
+          roster = next;
+          const sig = rosterData(next);
+          // While a Reset PIN, Rename, or Remove sheet is open, its button must stay in place.
+          if (sig !== last && !sheetIsOpen()) {
+            redrawRoster(panel, roster, canExport, canAdmin(g));
+            last = sig;
+          } else {
+            refreshActivity(panel, roster);
+          }
+          const lede = $('.page-head .lede', el);
+          if (lede) lede.textContent = gameLede(g, roster);
+        } catch (_) {
+          // try again on the next pass
+        } finally {
+          busy = false;
+        }
+      };
+
+      // After admins or lessons change, take the server's view of the game. The caller redraws its
+      // own panel when this returns true. When this mentor's admin standing changed, the whole page
+      // redraws instead so every control matches, and this returns false.
+      const refreshGame = async () => {
+        const games = await api.mentorGames().catch(() => null);
+        const fresh = Array.isArray(games) ? games.find((x) => x.id === g.id) : null;
+        if (!fresh) return true;
+        const was = canAdmin(g);
+        Object.assign(g, fresh);
+        if (canAdmin(g) === was) return true;
+        rerender();
+        return false;
+      };
+
+      // The page head, the status controls, and the reset form follow the game after a change made
+      // in place, so the rest of the page (and any unsaved picks in the lessons form) stays put.
+      const syncGame = () => {
+        const h1 = $('.page-head h1', el);
+        if (h1) h1.textContent = g.name;
+        const lede = $('.page-head .lede', el);
+        if (lede) lede.textContent = gameLede(g, roster);
+        const chip = $('[data-status-chip]', el);
+        if (chip) chip.outerHTML = statusChipFor(g).toString();
+        for (const b of $$('[data-status]', el)) b.setAttribute('aria-pressed', String(b.dataset.status === g.status));
+        const same = $('#rs-cash option[value=""]', el);
+        if (same) same.textContent = `Same cash (${money(g.starting_cash, { whole: true })})`;
+      };
+
+      // The checked lesson ids, and whether they differ from the saved list.
+      const picks = () => {
+        const checked = new Set($$('[data-lesson-check]', el).filter((c) => c.checked).map((c) => c.dataset.lessonCheck));
+        const saved = new Set(Array.isArray(g.required_lessons) ? g.required_lessons : []);
+        return { checked, dirty: checked.size !== saved.size || [...checked].some((id) => !saved.has(id)) };
+      };
+
+      // The count line, the Not saved note, and each Select all button follow the checkboxes.
+      const syncLessonsForm = () => {
+        const { checked, dirty } = picks();
+        const count = $('[data-required-count]', el);
+        if (count) count.textContent = requiredCountText(checked.size);
+        const note = $('[data-lessons-dirty]', el);
+        if (note) note.hidden = !dirty;
+        for (const b of $$('[data-track-all]', el)) {
+          const track = TRACKS.find((t) => t.id === b.dataset.trackAll);
+          if (!track) continue;
+          const all = lessonsForTrack(track.id).every((l) => checked.has(l.id));
+          b.textContent = all ? 'Clear all' : 'Select all';
+          b.setAttribute('aria-label', trackAllLabel(track, all));
+        }
+      };
+
+      // Status, announcement, and rules save in place: a redraw would drop unsaved lesson picks.
       const save = async (patch, msg) => {
         try {
           await api.updateGame(g.id, patch);
           toast(msg, 'good');
-          rerender();
+          Object.assign(g, patch);
+          if (!(await refreshGame())) return;
+          syncGame();
+          last = '';
+          await pollRoster({ force: true });
         } catch (err) {
           toast(err.message, 'bad');
         }
@@ -484,14 +669,36 @@ async function gameDetail({ params, rerender }) {
           return save({ status: st.dataset.status }, `Game ${st.dataset.status === 'active' ? 'is active' : st.dataset.status}`);
         }
         if (e.target.closest('[data-export]')) {
-          const rows = [['Player', 'Value', 'Return %', 'Cash', 'Holdings', 'Trades', 'Open orders', 'Lessons', 'Last active', 'Joined']]
-            .concat(roster.map((r) => [r.display_name, r.total_value, r.return_pct, r.cash, r.holdings, r.trades, r.open_orders, r.lessons_completed, r.last_active_at || '', r.joined_at || '']));
+          const rows = [['Player', 'Value', 'Return %', 'Cash', 'Holdings', 'Trades', 'Open orders', 'Lessons', 'Required passed', 'Required', 'Last active', 'Joined']]
+            .concat(roster.map((r) => [r.display_name, r.total_value, r.return_pct, r.cash, r.holdings, r.trades, r.open_orders, r.lessons_completed, r.lessons_required_passed ?? 0, r.lessons_required ?? 0, r.last_active_at || '', r.joined_at || '']));
           const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
           const a = document.createElement('a');
           a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
           a.download = `${g.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-roster.csv`;
           a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+          return;
+        }
+        const ta = e.target.closest('[data-track-all]');
+        if (ta) {
+          const boxes = lessonsForTrack(ta.dataset.trackAll).map((l) => $(`[data-lesson-check="${l.id}"]`, el)).filter(Boolean);
+          const all = boxes.every((b) => b.checked);
+          for (const b of boxes) b.checked = !all;
+          syncLessonsForm();
+          return;
+        }
+        const ar = e.target.closest('[data-admin-remove]');
+        if (ar) {
+          const ok = await confirmSheet({ title: `Remove ${ar.dataset.name} as an admin?`, message: 'They can still open this game and see the roster. They cannot change it until an admin adds them back.', confirmLabel: 'Remove admin', danger: true });
+          if (!ok) return;
+          try {
+            const list = await api.setGameAdmin(g.id, ar.dataset.adminRemove, false);
+            if (Array.isArray(list)) g.admins = list;
+            toast('Admin removed');
+            if (await refreshGame()) $('#admins-panel', el).innerHTML = adminsPanel(g).toString();
+          } catch (err) {
+            toast(err.message, 'bad');
+          }
           return;
         }
         const pin = e.target.closest('[data-pin]');
@@ -514,7 +721,8 @@ async function gameDetail({ params, rerender }) {
                   await api.resetPin(pin.dataset.pin, v);
                   close();
                   toast('PIN updated', 'good');
-                  rerender();
+                  last = '';
+                  await pollRoster({ force: true });
                 } catch (err) {
                   sheet.querySelector('#np-err').textContent = err.message;
                 }
@@ -537,7 +745,8 @@ async function gameDetail({ params, rerender }) {
                   await api.renamePlayer(rn.dataset.rename, sheet.querySelector('#rn').value.trim());
                   close();
                   toast('Name updated', 'good');
-                  rerender();
+                  last = '';
+                  await pollRoster({ force: true });
                 } catch (err) {
                   sheet.querySelector('#rn-err').textContent = err.message;
                 }
@@ -553,7 +762,8 @@ async function gameDetail({ params, rerender }) {
           try {
             await api.removePlayer(rm.dataset.remove);
             toast('Player removed');
-            rerender();
+            last = '';
+            await pollRoster({ force: true });
           } catch (err) {
             toast(err.message, 'bad');
           }
@@ -561,6 +771,46 @@ async function gameDetail({ params, rerender }) {
       });
       el.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (e.target.id === 'admin-form') {
+          const input = $('[data-admin-email]', el);
+          const email = input.value.trim();
+          if (!email) {
+            toast("Enter the mentor's email.", 'bad');
+            input.focus();
+            return;
+          }
+          const btn = $('[data-admin-add]', el);
+          btn.disabled = true;
+          try {
+            const list = await api.setGameAdmin(g.id, email, true);
+            if (Array.isArray(list)) g.admins = list;
+            toast('Admin added', 'good');
+            if (await refreshGame()) $('#admins-panel', el).innerHTML = adminsPanel(g).toString();
+          } catch (err) {
+            toast(err.message, 'bad');
+            btn.disabled = false;
+          }
+          return;
+        }
+        if (e.target.id === 'lessons-form') {
+          const btn = $('[data-lessons-save]', el);
+          const ids = LESSONS.filter((l) => $(`[data-lesson-check="${l.id}"]`, el)?.checked).map((l) => l.id);
+          btn.disabled = true;
+          try {
+            const saved = await api.setGameLessons(g.id, ids);
+            g.required_lessons = Array.isArray(saved) ? saved : ids;
+            toast(`Saved. ${requiredCountText(g.required_lessons.length)}`, 'good');
+            if (!(await refreshGame())) return;
+            $('#lessons-panel', el).innerHTML = lessonsPanel(g).toString();
+            // The roster's Required column counts against the new list, so redraw it now.
+            last = '';
+            await pollRoster({ force: true });
+          } catch (err) {
+            toast(err.message, 'bad');
+            btn.disabled = false;
+          }
+          return;
+        }
         if (e.target.id === 'ann-form') return save({ announcement: $('#ann', el).value.trim() }, 'Announcement saved');
         if (e.target.id === 'rules-form') {
           const end = $('#r-end', el).value;
@@ -581,6 +831,8 @@ async function gameDetail({ params, rerender }) {
             const cash = $('#rs-cash', el).value;
             await api.resetGame(g.id, cash ? Number(cash) : null);
             toast('Game reset', 'good');
+            // A reset touches every panel (and in the demo, the whole sample game), so the page
+            // redraws; unsaved lesson picks come back through pendingPicks.
             rerender();
           } catch (err) {
             toast(err.message, 'bad');
@@ -588,35 +840,28 @@ async function gameDetail({ params, rerender }) {
         }
       });
 
-      // Students show up on the roster while the join code is on screen.
-      // Activity dots, labels, and counts update in place on every pass.
-      let last = rosterData(roster);
-      let busy = false;
-      const timer = setInterval(async () => {
-        if (document.hidden || busy) return;
-        busy = true;
-        try {
-          const next = await api.roster(g.id);
-          const panel = $('#roster-panel', el);
-          if (!el.isConnected || !panel) return;
-          roster = next;
-          const sig = rosterData(next);
-          // While a Reset PIN, Rename, or Remove sheet is open, its button must stay in place.
-          if (sig !== last && !sheetIsOpen()) {
-            redrawRoster(panel, roster, canExport);
-            last = sig;
-          } else {
-            refreshActivity(panel, roster);
-          }
-          const lede = $('.page-head .lede', el);
-          if (lede) lede.textContent = gameLede(g, roster);
-        } catch (_) {
-          // try again on the next pass
-        } finally {
-          busy = false;
-        }
+      el.addEventListener('change', (e) => {
+        if (e.target instanceof Element && e.target.matches('[data-lesson-check]')) syncLessonsForm();
+      });
+
+      // Picks kept across a redraw of this page come back, with the count and note to match.
+      const kept = pendingPicks.get(g.id);
+      pendingPicks.delete(g.id);
+      if (kept && canAdmin(g)) {
+        for (const c of $$('[data-lesson-check]', el)) c.checked = kept.has(c.dataset.lessonCheck);
+        syncLessonsForm();
+      }
+
+      const timer = setInterval(() => {
+        if (!document.hidden) pollRoster();
       }, isDemo() ? 4000 : 10000);
-      return () => clearInterval(timer);
+      return () => {
+        clearInterval(timer);
+        // A redraw of this same page keeps unsaved picks. Leaving the page drops them.
+        const { checked, dirty } = picks();
+        if (dirty && currentPath().replace(/\/$/, '') === `/mentor/game/${g.id}`) pendingPicks.set(g.id, checked);
+        else pendingPicks.delete(g.id);
+      };
     }
   };
 }

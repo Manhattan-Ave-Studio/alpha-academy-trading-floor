@@ -14,15 +14,18 @@ The site is plain HTML, CSS, and JavaScript (no build step), so it runs on GitHu
 - Stock pages: live price, charts (1D to 5Y, line or candles), key numbers with tap-to-define terms, company description, news, and their position
 - A full trade ticket: market, limit, stop, and stop-limit orders; day or good-'til-canceled; buy by shares or by dollar amount; a review step; and a "Why this trade?" note their mentors can read
 - Portfolio with allocation by holding or sector, orders with plain-English reasons for anything that did not fill, and a cash ledger
-- Learn: 21 lessons in four tracks (Market Basics, Building a Portfolio, Money for Life, Wealth and Legacy). Each has learning goals, numbered sections with worked examples, short explainer videos (mostly Investopedia) that play right in the lesson, key terms, takeaways, mentor discussion prompts, and further reading, then an 8-question exam on its own screen (pass at 75%, retakes allowed, best score saved)
+- Learn: 21 lessons in four tracks (Market Basics, Building a Portfolio, Money for Life, Wealth and Legacy). Each has learning goals, numbered sections with worked examples, short explainer videos (mostly Investopedia) that play right in the lesson, key terms, takeaways, mentor discussion prompts, and further reading, then an 8-question exam on its own screen (pass at 75%, 3 tries, best score saved; after the third miss the exam locks until a mentor resets it)
+- Required lessons: when a game's admins require lessons, Learn marks each one "Required" and shows "Required before trading: 2 of 3 passed" with links to the ones left. The home screen and the trade ticket say "Trading opens after you pass your required lessons" until every one is passed. Markets, portfolio, leaderboard, and Learn stay open
 - A glossary of more than 180 terms, and calculators for compound growth, credit card payoff, and a 50/30/20 budget
 - Resources: vetted free links, including Brooklyn and NYC programs and a section on the history of Black Americans in finance (Library of Congress, Federal Reserve, OCC, Treasury, National Park Service, Smithsonian, PBS, and books)
 
 **For mentors**
 - Create games with their own rules: starting cash, single-stock limit, lowest share price, commission, fractional shares, whether classmates can see holdings, start and end dates
+- Admins for each game: whoever creates a game is its first admin and adds other mentors as admins by email. Every mentor can open any game and see its roster and student pages; only its admins can change its rules, manage its players, assign required lessons, or reset an exam
+- Required lessons: check the lessons students must pass before they can trade (for example, "Order types" before the first session) and save. The roster's Required column shows each student's count, like "2 of 3"
 - A join code and QR code for each game, an announcement banner on every student's home screen, pause or end a game, reset a game after a practice round
 - Roster with value, return, trades, lessons passed, and live activity: a green dot for students on the app right now, gold for the last hour, and a count like "4 of 5 active now" for spotting who has not logged on during a session. It refreshes as students join; reset a PIN, rename, or remove a player; download the roster as CSV
-- Each student's page shows holdings, every trade note, and best exam scores
+- Each student's page shows holdings, every trade note, and every lesson's best score with tries used. A Reset exam button gives a student 3 new tries on an exam they ran out of tries on
 - Market data status and a one-click sync
 
 **How the game works**
@@ -30,6 +33,7 @@ The site is plain HTML, CSS, and JavaScript (no build step), so it runs on GitHu
 - Limit, stop, and stop-limit orders are checked every minute against fresh prices. Day orders expire at the close; good-'til-canceled orders last up to 90 days.
 - Holidays and 1:00 p.m. early closes follow the NYSE calendar.
 - No short selling, margin, or options.
+- A game's admins can require lessons. The database refuses a student's orders until every required lesson is recorded as passed, and the app shows the lock on the home screen and the trade ticket.
 
 ## Try it now (demo mode)
 
@@ -77,7 +81,8 @@ From the Supabase dashboard you need three values (Project Settings, then API):
 4. `supabase/migrations/20261011000400_people.sql`
 5. `supabase/migrations/20261011000500_service.sql`
 6. `supabase/migrations/20261020000100_activity_privacy.sql`
-7. `supabase/seed.sql` (featured companies and the 2026 to 2028 trading calendar)
+7. `supabase/migrations/20261021000100_modules_and_admins.sql`
+8. `supabase/seed.sql` (featured companies and the 2026 to 2028 trading calendar)
 
 **Option B: Supabase CLI.**
 
@@ -87,7 +92,9 @@ npx supabase link --project-ref YOUR-PROJECT-REF
 npx supabase db push          # runs the migrations
 ```
 
-Then run `supabase/seed.sql` in the SQL editor.
+Then run `supabase/seed.sql` in the SQL editor. The CLI records each migration it applies, so later updates can use `db push` too. A project created with option A has no such record, so `db push` would try to run every file again and stop at the first table that already exists; `docs/HANDOVER.md` section 9.9 has the one-time repair that lets an option A project switch to the CLI.
+
+If the site is already live and a later migration arrives with an update, deploy the site first and then run the new file the same way you created the database: paste it into the SQL editor (option A) or `npx supabase db push` (option B). Until the new file runs, the parts of the app that depend on it fail with a server error that names a function the database cannot find. For the October 2026 update, those are the Admins, Required lessons, and Reset exam controls; students keep trading and taking exams.
 
 ### 3. Turn on student sign-in
 
@@ -178,6 +185,7 @@ Keep the `vendor/` folder; it holds the Supabase client and the QR code library 
 1. Open the site, go to **Mentor panel**, create a mentor login, and enter the mentor code.
 2. On the mentor dashboard, press **Sync symbols and calendar now**. This loads every U.S.-listed stock and ETF for search (about a minute).
 3. Create a game. Put its QR code on screen at the next session.
+4. On the game's page, under **Required lessons**, check the lessons students must pass before they can trade and press **Save required lessons**. The mentor guide suggests "Order types" for the first session. To let another brother run the game with you, add them under **Admins** by the email of their mentor login.
 
 ## Costs and limits
 
@@ -200,6 +208,7 @@ Notes:
 - Students see classmates' names and totals on the leaderboard. Holdings stay private unless a mentor turns on sharing. Orders, trade notes, and lesson progress are visible only to the student and mentors.
 - Mentors also see when each student was last active. While the app is open on screen, it records that about once a minute in the chapter's own database. Only mentors can read it, nothing goes to an outside service, and it stops when the student closes the app or the screen locks.
 - Removing a player deletes their portfolio, orders, and progress.
+- Mentors see each other's email addresses in a game's admin list, so they know whom to ask for access. Students never see them.
 - Lesson videos load nothing from YouTube until a student presses Play. The video then plays in YouTube's privacy-enhanced player (youtube-nocookie.com), and Google receives the student's IP address, as with any YouTube visit. Each video also has an Open on YouTube link.
 
 ## Make it yours
@@ -215,9 +224,9 @@ Notes:
 
 ```bash
 npm install            # test tools only; the site itself has no dependencies
-npm test               # 55 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, and the hosting build
+npm test               # 72 tests: database rules (real Postgres via PGlite), the market function, the demo engine, lesson content, lesson helpers, and the hosting build
 npm run test:e2e       # browser smoke test of every page at phone and desktop widths (needs `npm run dev` running and `npx playwright install chromium`)
-npm run test:live      # live mode in a real browser against a local stand-in for Supabase (mentor signup, new game, join, trades, rejoin, roster)
+npm run test:live      # live mode in a real browser against a local stand-in for Supabase (mentor signup, new game, required lesson, join, trades, rejoin, roster, a second mentor added as an admin)
 npm run build:preview  # single-file demo for sharing a preview link
 npm run build:site     # the folder Vercel publishes (dist/site), with Supabase settings from SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY
 npm run vendor         # refresh vendor/ from node_modules
@@ -240,6 +249,9 @@ GitHub Actions runs all of these tests on every pull request and every merge to 
 | Search only finds about 100 companies | Press **Sync symbols and calendar now** in the mentor panel. |
 | A mentor's confirmation email never arrives | Turn off "Confirm email" or add the mentor under Authentication, then Users (step 3). |
 | Calls to the function fail with 401 | JWT verification is still on for `market`; turn it off (step 5). |
+| A server error that a function could not be found, naming `set_game_lessons`, `set_game_admin`, or `reset_exam` | The site is newer than the database. Run the latest file in `supabase/migrations` the same way you created the database (step 2). |
+| "Only this game's admins can change it" | You have a mentor login but are not one of that game's admins. Ask an admin to add you by email under **Admins** on the game's page. A game with no admins left (none of them is a mentor any longer, or its creator had no mentor login when the October 2026 update ran) is open to every mentor. |
+| "No tries left" on a lesson exam | The student missed that exam three times. An admin of their game opens the student's page from the roster and presses **Reset exam** next to the lesson. The student gets 3 new tries and keeps their best score. |
 
 ## Files
 
@@ -253,7 +265,7 @@ assets/js/api/live.js          Supabase and the market function
 assets/js/api/demo.js          demo mode
 assets/js/engine/              order rules (demo) and the simulated market
 assets/js/data/                lessons and exams, glossary, resources, featured companies
-supabase/migrations/           schema, security, trading engine, mentor tools
+supabase/migrations/           schema, security, trading engine, mentor tools, game admins and required lessons
 supabase/functions/market/     market data and the every-minute cycle
 supabase/setup/                mentor code and scheduler scripts
 docs/mentor-guide.md           a one-page guide for mentors running sessions

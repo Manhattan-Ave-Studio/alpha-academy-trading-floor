@@ -11,6 +11,8 @@ import { LEGACY } from './lessons-legacy.js';
 
 /** Percent needed on a lesson exam to complete the lesson. Keep in sync with game_roster in the people migration. */
 export const PASS_MARK = 75;
+/** Tries a student gets on each lesson exam before an admin has to reset it. Keep in sync with complete_lesson in the modules migration. */
+export const EXAM_TRIES = 3;
 
 export const TRACKS = [
   { id: 'basics', title: 'Market Basics', blurb: 'How stocks, exchanges, quotes, and orders work.', icon: 'markets' },
@@ -65,6 +67,41 @@ export function isPassed(entry) {
 
 export function passedCount(progress) {
   return LESSONS.filter((l) => isPassed(progress?.[l.id])).length;
+}
+
+/** Tries used on a lesson exam so far (entries saved before tries existed count as one). */
+export function triesUsed(entry) {
+  if (!entry) return 0;
+  return entry.attempts == null ? 1 : Number(entry.attempts);
+}
+
+export function triesLeft(entry) {
+  return Math.max(0, EXAM_TRIES - triesUsed(entry));
+}
+
+/** True when the exam cannot be taken again until an admin resets it. */
+export function examLocked(entry) {
+  return !!entry && !isPassed(entry) && triesUsed(entry) >= EXAM_TRIES;
+}
+
+/** Required lessons (ids from a game's required_lessons) the student has not passed yet, in order. */
+export function requiredLeft(requiredIds, progress) {
+  return (requiredIds || []).map((id) => lessonById(id)).filter((l) => l && !isPassed(progress?.[l.id]));
+}
+
+/** Required ids this build has no lesson for (a lesson renamed or removed since the game was set up). */
+export function requiredUnknown(requiredIds) {
+  return (requiredIds || []).filter((id) => !lessonById(id));
+}
+
+/**
+ * True when a game requires lessons the student has not passed, so trading is closed to them.
+ * Matches private.lessons_left in the database: a required id with no lesson in this build still
+ * counts until an admin saves the game's required lessons again, which drops it.
+ */
+export function tradingLocked(game, progress) {
+  const ids = game?.required_lessons || [];
+  return ids.some((id) => !isPassed(progress?.[id]));
 }
 
 /** The first lesson not yet passed, for "continue" buttons. */
