@@ -6,6 +6,7 @@ import { icon } from '../lib/icons.js';
 import { term, toast } from '../lib/ui.js';
 import { store, quoteOf, mergeQuotes, playerId, isDemo } from '../state.js';
 import { addDaysIso } from '../lib/calendar.js';
+import { tradingLocked } from '../data/lessons.js';
 import { symBadge, livePrice, liveChange, changeOf, footer, empty } from './common.js';
 import { openTrade } from './trade.js';
 
@@ -27,6 +28,7 @@ export async function render({ params, rerender }) {
   const watching = store.watchlist.includes(sym);
   const isEtf = info.asset_type === 'etf';
   const c = changeOf(q);
+  const locked = tradingLocked(store.current?.game, store.lessons);
 
   const posCard = pos
     ? html`<section class="panel">
@@ -75,10 +77,15 @@ export async function render({ params, rerender }) {
           <div class="chart tall" id="stock-chart" style="margin-top:12px"></div>
         </section>
 
-        <div class="trade-bar sticky">
-          <button class="btn buy" type="button" data-trade="buy">Buy ${sym}</button>
-          <button class="btn sell" type="button" data-trade="sell" ${pos ? '' : 'disabled title="You do not own this yet"'}>Sell</button>
-        </div>
+        ${locked
+          ? html`<div class="trade-bar sticky locked" role="note" data-trading-locked>
+              ${raw(icon('lock'))}<span class="grow">Trading opens after you pass your required lessons.</span>
+              <a class="btn small" href="#/learn">${raw(icon('learn'))} Learn</a>
+            </div>`
+          : html`<div class="trade-bar sticky">
+              <button class="btn buy" type="button" data-trade="buy">Buy ${sym}</button>
+              <button class="btn sell" type="button" data-trade="sell" ${pos ? '' : 'disabled title="You do not own this yet"'}>Sell</button>
+            </div>`}
 
         ${posCard}
 

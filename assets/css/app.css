@@ -421,8 +421,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--surface);
 }
 .banner.gold { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); background: var(--gold-wash); }
+.banner.up { border-color: color-mix(in srgb, var(--up) 45%, var(--line)); background: var(--up-wash); }
 .banner .grow { flex: 1; min-width: 0; }
 .banner svg { flex: none; width: 20px; height: 20px; color: var(--gold-text); margin-top: 2px; }
+.banner.up svg { color: var(--up); }
+.banner a:not(.btn) { color: inherit; font-weight: 600; }
+/* A banner with one action (the required-lessons lock) keeps the button clear of the text. */
+.banner > .btn { flex: none; align-self: center; }
+.banner > .btn svg { margin-top: 0; color: inherit; }
 
 /* ------------------------------------------------------------------ controls */
 
@@ -569,6 +575,8 @@ button.chip { cursor: pointer; }
 .chip.down { color: var(--down); background: var(--down-wash); border-color: transparent; }
 .chip.warn { color: var(--warn); background: var(--warn-wash); border-color: transparent; }
 .chip.gold { color: var(--gold-text); background: var(--gold-wash); border-color: transparent; }
+.chip.small { padding: 1px 8px; font-size: var(--step--2); }
+.chip svg { width: 14px; height: 14px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 /* One row that swipes sideways on touch screens. max-width keeps it inside its panel, even in a
    header that wraps (otherwise the row grows to fit every chip and the panel cuts it off). */
@@ -784,7 +792,26 @@ table.data-table, .table {
 .stock-price .big { font-family: var(--font-display); font-size: var(--step-5); font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .trade-bar { display: flex; gap: 10px; }
 .trade-bar .btn { flex: 1; }
+/* The note that stands in for Buy and Sell while the game's required lessons are not passed. */
+.trade-bar.locked {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+  border-radius: var(--radius);
+  background: var(--gold-wash);
+  font-weight: 600;
+}
+.trade-bar.locked > svg { flex: none; width: 20px; height: 20px; color: var(--gold-text); }
+.trade-bar.locked .grow { flex: 1; min-width: 0; }
+.trade-bar.locked .btn { flex: none; }
 @media (max-width: 959px) {
+  .trade-bar.locked.sticky {
+    border-radius: 0;
+    border-inline: 0;
+    border-bottom: 0;
+    background: linear-gradient(var(--gold-wash), var(--gold-wash)), color-mix(in srgb, var(--bg) 92%, transparent);
+  }
   .trade-bar.sticky {
     position: fixed;
     left: 0;
@@ -937,6 +964,7 @@ table.data-table, .table {
 .lesson-row.passed .num { background: var(--gold); border-color: var(--gold); color: var(--on-gold); }
 .lesson-row .body { display: grid; gap: 2px; min-width: 0; }
 .lesson-row .body b { font-size: var(--step-1); font-weight: 600; }
+.lesson-row .title { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
 .lesson-row .summary { color: var(--muted); font-size: var(--step--1); }
 .lesson-row .facts { display: grid; grid-template-columns: 4.6em 6.4em; gap: 14px; color: var(--faint); font-size: var(--step--1); white-space: nowrap; }
 .lesson-row .facts span { display: inline-flex; align-items: center; gap: 5px; }
@@ -963,6 +991,7 @@ table.data-table, .table {
 .lesson-facts li.passed { color: var(--up); border-color: transparent; background: var(--up-wash); }
 .lesson-facts li.passed svg { color: var(--up); }
 .lesson-facts li.tried { color: var(--gold-text); border-color: transparent; background: var(--gold-wash); }
+.lesson-facts li.required { color: var(--text); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
 
 .lesson-layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 .lesson-toc { display: none; }
@@ -1107,6 +1136,21 @@ svg.inline-ext { width: 14px; height: 14px; vertical-align: -2px; margin-left: 6
 .exam-cta { display: flex; gap: 18px 28px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 22px 24px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--gold) 50%, var(--line)); background: linear-gradient(120deg, var(--gold-wash), transparent 70%), var(--surface); }
 .exam-cta h2 { font-size: var(--step-3); }
 .exam-cta p { max-width: 56ch; }
+.exam-cta .exam-chip { font-size: var(--step-0); padding: 8px 16px; }
+/* The note that stands in for the exam button once the tries are used up. */
+.exam-cta .exam-locked {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  max-width: 30ch;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+.exam-cta .exam-locked svg { flex: none; width: 20px; height: 20px; color: var(--gold-text); }
 
 .lesson-pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .pager { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; min-width: 0; }

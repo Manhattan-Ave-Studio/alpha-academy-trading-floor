@@ -5,8 +5,9 @@ import { toast, confirmSheet } from '../lib/ui.js';
 import { etWhen } from '../lib/format.js';
 import { store, playerId } from '../state.js';
 import {
-  TRACKS, LESSONS, PASS_MARK, lessonById, lessonsForTrack, lessonNumber, nextLesson, prevLesson,
-  isPassed, passedCount, nextToStudy, correctToPass, videoUrl, videoEmbedUrl
+  TRACKS, LESSONS, PASS_MARK, EXAM_TRIES, lessonById, lessonsForTrack, lessonNumber, nextLesson, prevLesson,
+  isPassed, passedCount, nextToStudy, correctToPass, videoUrl, videoEmbedUrl,
+  triesUsed, triesLeft, examLocked, requiredLeft, requiredUnknown
 } from '../data/lessons.js';
 import { GLOSSARY, glossaryList } from '../data/glossary.js';
 import { pageHead, footer, empty } from './common.js';
@@ -45,6 +46,38 @@ function plural(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/** The note that takes the place of the exam button once the tries are used up. */
+const LOCKED_NOTE = 'No tries left. Ask a mentor to reset this exam.';
+
+/** Lessons the student's game requires, as ids this build knows. Empty outside a game. */
+function requiredIds() {
+  if (!playerId()) return [];
+  return (store.current?.game?.required_lessons || []).filter((id) => lessonById(id));
+}
+
+/** One line on where a lesson exam stands: tries left, the best score so far, or the pass. */
+function triesLine(entry) {
+  if (isPassed(entry)) return `Passed with ${entry.score}%.`;
+  if (!entry) return `${plural(EXAM_TRIES, 'try', 'tries')}. Score ${PASS_MARK}% or better to pass.`;
+  const left = triesLeft(entry);
+  return `Best so far ${entry.score}%. ${left ? `${plural(left, 'try', 'tries')} left.` : 'No tries left.'}`;
+}
+
+/** The Learn index line on the game's required lessons, or nothing when none are required. */
+function requiredLine(required, done) {
+  const unknown = playerId() ? requiredUnknown(store.current?.game?.required_lessons) : [];
+  if (!required.length && !unknown.length) return '';
+  const left = requiredLeft(required, done);
+  const stale = unknown.length ? ' This game also requires a lesson that is no longer in the course. Ask a mentor to save the required lessons again.' : '';
+  if (!left.length && !unknown.length) {
+    return html`<div class="banner up" role="note" data-required-line>${raw(icon('check'))}<div class="grow"><b>Required lessons: all passed.</b> Trading is open.</div></div>`;
+  }
+  return html`<div class="banner gold" role="note" data-required-line>${raw(icon('lock'))}<div class="grow">
+    <b>Required before trading: ${required.length - left.length} of ${required.length} passed.</b>
+    ${left.length ? html`Still to pass: ${left.map((l, i) => html`${i ? ', ' : ''}<a href="#/learn/${l.id}">${l.title}</a>`)}.` : ''}${stale}
+  </div></div>`;
+}
+
 // ------------------------------------------------------------------ course overview
 
 export async function renderIndex() {
@@ -52,10 +85,12 @@ export async function renderIndex() {
   const passed = passedCount(done);
   const attempted = LESSONS.filter((l) => done[l.id]);
   const avg = attempted.length ? Math.round(attempted.reduce((s, l) => s + Number(done[l.id].score), 0) / attempted.length) : null;
-  const next = nextToStudy(done);
+  const required = requiredIds();
+  const requiredSet = new Set(required);
+  const next = requiredLeft(required, done)[0] || nextToStudy(done);
 
   const markup = html`
-    ${pageHead('Learn', `${LESSONS.length} lessons in four tracks. Read a lesson, watch its videos, then take its exam on its own screen. Score ${PASS_MARK}% or better to complete it.`,
+    ${pageHead('Learn', `${LESSONS.length} lessons in four tracks. Read a lesson, watch its videos, then take its exam on its own screen. Score ${PASS_MARK}% or better to complete it. You get ${EXAM_TRIES} tries on each exam.`,
       html`<a class="btn secondary" href="#/glossary">${raw(icon('book'))} Glossary</a><a class="btn secondary" href="#/tools">${raw(icon('tools'))} Calculators</a>`)}
     <section class="panel learn-hero">
       ${raw(ring(passed, LESSONS.length, `${passed}/${LESSONS.length}`, { size: 120 }))}
@@ -71,6 +106,7 @@ export async function renderIndex() {
         </div>
       </div>
     </section>
+    ${requiredLine(required, done)}
     ${TRACKS.map((t, ti) => {
       const list = lessonsForTrack(t.id);
       const tp = list.filter((l) => isPassed(done[l.id])).length;
@@ -87,7 +123,10 @@ export async function renderIndex() {
             const st = statusOf(done[l.id]);
             return html`<li><a class="lesson-row ${st.cls}" href="#/learn/${l.id}">
               <span class="num">${isPassed(done[l.id]) ? raw(icon('check')) : lessonNumber(l)}</span>
-              <span class="body"><b>${l.title}</b><span class="summary">${l.summary}</span></span>
+              <span class="body">
+                <span class="title"><b>${l.title}</b>${requiredSet.has(l.id) ? html`<span class="chip gold small" data-required-chip>Required</span>` : ''}</span>
+                <span class="summary">${l.summary}</span>
+              </span>
               <span class="facts">
                 <span>${raw(icon('clock'))}${l.minutes} min</span>
                 ${l.videos.length ? html`<span>${raw(icon('play'))}${plural(l.videos.length, 'video', 'videos')}</span>` : html`<span></span>`}
@@ -125,6 +164,9 @@ export async function renderLesson({ params }) {
   const done = await progress();
   const track = TRACKS.find((t) => t.id === lesson.track);
   const prior = done[lesson.id];
+  const passed = isPassed(prior);
+  const locked = examLocked(prior);
+  const required = requiredIds().includes(lesson.id);
   const next = nextLesson(lesson.id);
   const prev = prevLesson(lesson.id);
   const items = tocItems(lesson);
@@ -142,7 +184,8 @@ export async function renderLesson({ params }) {
         <li>${raw(icon('clock'))}${lesson.minutes} min read</li>
         ${lesson.videos.length ? html`<li>${raw(icon('play'))}${plural(lesson.videos.length, 'video', 'videos')}</li>` : ''}
         <li>${raw(icon('exam'))}Exam: ${lesson.exam.length} questions</li>
-        ${prior ? html`<li class="${isPassed(prior) ? 'passed' : 'tried'}">${raw(icon(isPassed(prior) ? 'check' : 'refresh'))}${isPassed(prior) ? `Passed with ${prior.score}%` : `Best so far ${prior.score}%`}</li>` : ''}
+        ${prior ? html`<li class="${passed ? 'passed' : 'tried'}">${raw(icon(passed ? 'check' : locked ? 'lock' : 'refresh'))}${passed ? `Passed with ${prior.score}%` : `Best so far ${prior.score}%`}</li>` : ''}
+        ${required ? html`<li class="required">${raw(icon('mentor'))}Required before trading</li>` : ''}
       </ul>
     </header>
 
@@ -210,10 +253,14 @@ export async function renderLesson({ params }) {
         <section class="exam-cta" id="exam" data-section aria-labelledby="h-exam">
           <div class="stack" style="gap:6px; min-width:0">
             <h2 id="h-exam">Lesson exam</h2>
-            <p>${lesson.exam.length} questions on their own screen. Answer at least ${need} correctly (${PASS_MARK}%) to complete the lesson. Retake it as often as you like; your best score counts.</p>
-            ${prior ? html`<p class="${isPassed(prior) ? 'up' : 'muted'}"><b>${isPassed(prior) ? 'Passed' : 'Best so far'}: ${prior.score}%</b>${prior.completed_at ? html` <span class="faint">on ${etWhen(prior.completed_at)}</span>` : ''}</p>` : ''}
+            <p>${lesson.exam.length} questions on their own screen. Answer at least ${need} correctly (${PASS_MARK}%) to complete the lesson. Your best score counts.</p>
+            <p class="${passed ? 'up' : 'muted'}"><b data-tries>${triesLine(prior)}</b>${prior?.completed_at ? html` <span class="faint">Best score from ${etWhen(prior.completed_at)}.</span>` : ''}</p>
           </div>
-          <a class="btn" href="#/learn/${lesson.id}/exam">${raw(icon('exam'))} ${prior ? 'Retake the exam' : 'Start the exam'}</a>
+          ${passed
+            ? html`<span class="chip up exam-chip">${raw(icon('check'))} Passed</span>`
+            : locked
+              ? html`<p class="exam-locked" data-exam-locked>${raw(icon('lock'))}<span>${LOCKED_NOTE}</span></p>`
+              : html`<a class="btn" href="#/learn/${lesson.id}/exam">${raw(icon('exam'))} ${prior ? 'Retake the exam' : 'Start the exam'}</a>`}
         </section>
 
         <nav class="lesson-pager" aria-label="More lessons">
@@ -327,7 +374,39 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 export async function renderExam({ params, navigate }) {
   const lesson = lessonById(params.id);
   if (!lesson) return { html: html`<div class="panel">${empty('Lesson not found', '', html`<a class="btn" href="#/learn">All lessons</a>`)}</div>` };
-  await progress();
+  const done = await progress();
+  const entry = done[lesson.id];
+  const tracked = !!playerId();
+
+  // A passed lesson is finished, and a locked exam waits for an admin: neither shows the questions.
+  if (tracked && (isPassed(entry) || examLocked(entry))) {
+    const passed = isPassed(entry);
+    const next = nextLesson(lesson.id);
+    return {
+      html: html`<div class="exam-shell">
+        <header class="exam-head">
+          <a class="btn ghost small" href="#/learn/${lesson.id}">${raw(icon('back'))} Back to lesson</a>
+          <div class="exam-title"><span class="faint">Lesson ${lessonNumber(lesson)} exam</span><b>${lesson.title}</b></div>
+        </header>
+        <section class="exam-stage">
+          <div class="exam-result ${passed ? 'pass' : 'retry'}">
+            ${raw(ring(Number(entry.score), 100, `${entry.score}%`, { size: 132, stroke: 10, tone: passed ? 'up' : 'gold' }))}
+            <div class="stack" style="gap:8px; min-width:0">
+              <h1 id="result-h" tabindex="-1">${passed ? 'Lesson complete' : 'Out of tries'}</h1>
+              ${passed
+                ? html`<p class="result-line">You passed this lesson with ${entry.score}%, so there is nothing to retake.</p>`
+                : html`<p class="result-line" data-exam-locked>${LOCKED_NOTE}</p>`}
+              <p class="muted">Best score ${entry.score}%. Pass mark ${PASS_MARK}%.</p>
+              <div class="row-wrap">
+                ${passed && next ? html`<a class="btn" href="#/learn/${next.id}">Next lesson: ${next.title}</a>` : ''}
+                <a class="btn ${passed && next ? 'secondary' : ''}" href="#/learn/${lesson.id}">Back to lesson</a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>`
+    };
+  }
 
   const markup = html`
     <div class="exam-shell">
@@ -400,15 +479,46 @@ export async function renderExam({ params, navigate }) {
         paintSteps();
       };
 
+      // The headline, the tries line, and the buttons depend on the saved entry (best score, tries used).
+      // They paint once from what the save should return, and again from what it did return.
+      const paintOutcome = (en) => {
+        const passed = isPassed(en);
+        const left = triesLeft(en);
+        const lockedNow = tracked && !passed && left === 0;
+        const canRetake = !passed && (!tracked || left > 0);
+        const h = $('#result-h', stage);
+        if (h) h.textContent = passed ? 'Lesson complete' : lockedNow ? 'Out of tries' : 'Keep going';
+        const line = $('[data-exam-tries]', stage);
+        if (line) {
+          line.innerHTML = html`${lockedNow ? html`<b data-exam-locked>${LOCKED_NOTE}</b> ` : ''}Best score ${en.score}%. Pass mark ${PASS_MARK}%.${
+            !tracked ? ' Join a game to save your progress.' : canRetake ? ` ${plural(left, 'try', 'tries')} left.` : ''}`.toString();
+        }
+        const actions = $('[data-exam-actions]', stage);
+        if (actions) {
+          const next = nextLesson(lesson.id);
+          const nextBtn = passed && next;
+          actions.innerHTML = html`
+            ${nextBtn ? html`<a class="btn" href="#/learn/${next.id}">Next lesson: ${next.title}</a>` : ''}
+            ${canRetake ? html`<button class="btn" type="button" data-retake>${raw(icon('refresh'))} Retake the exam</button>` : ''}
+            <a class="btn ${nextBtn || canRetake ? 'secondary' : ''}" href="#/learn/${lesson.id}">Back to lesson</a>`.toString();
+        }
+      };
+
       const finish = async () => {
         finished = true;
         const right = order.filter((qi, i) => answers[i] === lesson.exam[qi].answer).length;
         const score = Math.round((right / order.length) * 100);
         const passedNow = score >= PASS_MARK;
-        const priorBest = store.lessons?.[lesson.id]?.score ?? null;
-        const best = Math.max(score, priorBest ?? 0);
-        const next = nextLesson(lesson.id);
+        const prior = store.lessons?.[lesson.id];
         paintSteps();
+
+        // What the save should come back with: the best score and one more try used.
+        let entry = {
+          score: Math.max(score, Number(prior?.score ?? 0)),
+          completed_at: !prior || score > Number(prior.score) ? new Date().toISOString() : prior.completed_at,
+          attempts: triesUsed(prior) + 1
+        };
+        const moreTries = !tracked || triesLeft(entry) > 0;
 
         stage.innerHTML = html`<div class="exam-result ${passedNow ? 'pass' : 'retry'}">
           ${raw(ring(score, 100, `${score}%`, { size: 132, stroke: 10, tone: passedNow ? 'up' : 'gold' }))}
@@ -416,13 +526,9 @@ export async function renderExam({ params, navigate }) {
             <h1 id="result-h" tabindex="-1">${passedNow ? 'Lesson complete' : 'Keep going'}</h1>
             <p class="result-line"><b>${right} of ${order.length} correct.</b> ${passedNow
               ? `You passed with ${score}%.`
-              : `You need ${correctToPass(lesson)} of ${order.length} to pass. Review the explanations below, then try again.`}</p>
-            <p class="muted">Best score ${best}%. Pass mark ${PASS_MARK}%.${!playerId() ? ' Join a game to save your progress.' : ''}</p>
-            <div class="row-wrap">
-              ${passedNow && next ? html`<a class="btn" href="#/learn/${next.id}">Next lesson: ${next.title}</a>` : ''}
-              <button class="btn ${passedNow && next ? 'secondary' : ''}" type="button" data-retake>${raw(icon('refresh'))} Retake the exam</button>
-              <a class="btn secondary" href="#/learn/${lesson.id}">Back to lesson</a>
-            </div>
+              : `You need ${correctToPass(lesson)} of ${order.length} to pass. Review the explanations below${moreTries ? ', then try again.' : '.'}`}</p>
+            <p class="muted" data-exam-tries></p>
+            <div class="row-wrap" data-exam-actions></div>
           </div>
         </div>
         <section class="exam-review" aria-labelledby="review-h">
@@ -443,14 +549,23 @@ export async function renderExam({ params, navigate }) {
             })}
           </ol>
         </section>`.toString();
+        paintOutcome(entry);
         $('#result-h', stage)?.focus({ preventScroll: true });
         window.scrollTo(0, 0);
 
-        if (playerId()) {
+        if (tracked) {
           try {
-            await store.api.completeLesson(playerId(), lesson.id, score);
-            const prev = store.lessons?.[lesson.id];
-            if (!prev || score > Number(prev.score)) store.lessons = { ...store.lessons, [lesson.id]: { score, completed_at: new Date().toISOString() } };
+            const saved = await store.api.completeLesson(playerId(), lesson.id, score);
+            // A database without the tries migration answers with nothing; keep the local entry then.
+            if (saved && saved.score != null) {
+              entry = {
+                score: Number(saved.score),
+                completed_at: saved.completed_at ?? entry.completed_at,
+                attempts: saved.attempts == null ? entry.attempts : Number(saved.attempts)
+              };
+            }
+            store.lessons = { ...store.lessons, [lesson.id]: entry };
+            paintOutcome(entry);
             toast(passedNow ? 'Lesson complete. Progress saved.' : 'Score saved', 'good');
           } catch (err) {
             toast(err.message, 'bad');

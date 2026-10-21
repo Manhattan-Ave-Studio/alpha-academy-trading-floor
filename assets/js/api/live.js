@@ -281,11 +281,13 @@ export class LiveApi {
 
   async lessonProgress(playerId) {
     const rows = await this.select(this.client.from('lesson_progress').select('*').eq('player_id', playerId));
-    return Object.fromEntries(rows.map((r) => [r.lesson_id, { score: r.score, completed_at: r.completed_at }]));
+    return Object.fromEntries(rows.map((r) => [r.lesson_id, { score: r.score, completed_at: r.completed_at, attempts: r.attempts }]));
   }
 
+  /** Records an exam try. Returns { score, attempts, completed_at }: the best score and tries used so far. */
   async completeLesson(playerId, lessonId, score) {
-    return this.rpc('complete_lesson', { p_player_id: playerId, p_lesson_id: lessonId, p_score: score });
+    const row = await this.rpc('complete_lesson', { p_player_id: playerId, p_lesson_id: lessonId, p_score: score });
+    return row ? { score: row.score, completed_at: row.completed_at, attempts: row.attempts } : null;
   }
 
   async heartbeat(playerId) {
@@ -339,6 +341,22 @@ export class LiveApi {
 
   async resetGame(gameId, startingCash) {
     return this.rpc('reset_game', { p_game_id: gameId, p_starting_cash: startingCash ?? null });
+  }
+
+  /** Admins only. Replaces the game's required lessons; returns the saved list of lesson ids. */
+  async setGameLessons(gameId, lessonIds) {
+    return this.rpc('set_game_lessons', { p_game_id: gameId, p_lesson_ids: lessonIds });
+  }
+
+  /** Admins only. Adds (on) or removes a mentor as an admin of the game; returns the admin list. */
+  async setGameAdmin(gameId, email, on) {
+    return this.rpc('set_game_admin', { p_game_id: gameId, p_email: email, p_on: on });
+  }
+
+  /** Admins only. Gives a student a fresh set of tries on one exam; returns the progress row. */
+  async resetExam(playerId, lessonId) {
+    const row = await this.rpc('reset_exam', { p_player_id: playerId, p_lesson_id: lessonId });
+    return row ? { score: row.score, completed_at: row.completed_at, attempts: row.attempts } : null;
   }
 
   async addMentor(email) {

@@ -1,5 +1,6 @@
 // End-to-end tests of the database: market clock, order types, buying power, game rules,
-// snapshots, leaderboard, rejoin with PIN, and row level security.
+// snapshots, leaderboard, rejoin with PIN, row level security, game admins, required lessons,
+// and exam tries.
 // Run: npm test
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,6 +13,7 @@ let s2;
 let game;
 let p1;
 let p2;
+let mentor2;
 
 // Monday, October 12, 2026 (Eastern Daylight Time: ET = UTC-4)
 const MON_10AM = '2026-10-12T14:00:00Z';
@@ -24,9 +26,9 @@ const TUE_931 = '2026-10-13T13:31:00Z';
 const num = (x) => Number(x);
 const near = (a, b, eps = 0.0001) => assert.ok(Math.abs(num(a) - num(b)) <= eps, `${a} != ${b}`);
 
-async function rejects(promise, pattern) {
+async function rejects(promise, pattern, message) {
   await assert.rejects(promise, (e) => {
-    assert.match(String(e.message), pattern);
+    assert.match(String(e.message), pattern, message);
     return true;
   });
 }
@@ -454,4 +456,254 @@ test('students cannot read anyone’s last activity directly; their own player r
   assert.equal(classmates.length, 2, 'names stay visible within the game, as before');
   const roster = await h.rpc(mentor, 'game_roster', { p_game_id: game.id });
   assert.ok(roster.every((r) => r.last_active_at), 'mentors still see activity on the roster');
+});
+
+// ---------------------------------------------------------------------------
+// Game admins, required lessons, and exam tries (20261021000100_modules_and_admins.sql).
+// These tests share the game, players, and mentor from above: s1 is Jalen's phone after the
+// rejoin test, p1 passed 'order-types' on the third try, and the game was reset to $10,000.
+// ---------------------------------------------------------------------------
+
+const ONLY_ADMINS = /Only this game's admins can change it\. Ask one of them to add you as an admin\./;
+const NO_GAME = '00000000-0000-0000-0000-000000000000';
+const marketBuy = (who, playerId) =>
+  h.rpc1(who, 'place_order', { p_player_id: playerId, p_symbol: 'AAPL', p_side: 'buy', p_type: 'market', p_qty: 1 });
+const takeExam = (who, playerId, lessonId, score) =>
+  h.rpc1(who, 'complete_lesson', { p_player_id: playerId, p_lesson_id: lessonId, p_score: score });
+const gameFor = async (who) => (await h.rpc1(who, 'mentor_games')).find((g) => g.id === game.id);
+const rosterFor = async (who) =>
+  Object.fromEntries((await h.rpc(who, 'game_roster', { p_game_id: game.id })).map((r) => [r.player_id, r]));
+const at = (t) => new Date(t).toISOString();
+
+test('whoever creates a game is its first admin, and mentor_games says so', async () => {
+  const rows = await h.sql(`select user_id, added_by from public.game_admins where game_id = $1`, [game.id]);
+  assert.deepEqual(rows, [{ user_id: mentor.id, added_by: mentor.id }]);
+  const g = await gameFor(mentor);
+  assert.equal(g.is_admin, true);
+  assert.deepEqual(g.admins, [{ user_id: mentor.id, email: 'mentor@example.org', display_name: 'Bro. Aiken' }]);
+  assert.deepEqual(g.required_lessons, []);
+});
+
+test('every mentor can open a game and its roster, but only its admins can change it', async () => {
+  mentor2 = await h.createUser({ email: 'second@example.org' });
+  assert.equal(await h.rpc1(mentor2, 'claim_mentor', { p_code: 'brooklyn-alphas-2026', p_display_name: 'Bro. Second' }), true);
+  const g = await gameFor(mentor2);
+  assert.equal(g.is_admin, false);
+  assert.deepEqual(g.admins.map((a) => a.email), ['mentor@example.org']);
+  assert.deepEqual(g.required_lessons, []);
+  const roster = await h.rpc(mentor2, 'game_roster', { p_game_id: game.id });
+  assert.equal(roster.length, 2, 'the roster is open to every mentor');
+  const admins = await h.select(mentor2, `select user_id from public.game_admins where game_id = $1`, [game.id]);
+  assert.deepEqual(admins.map((a) => a.user_id), [mentor.id], 'so is the admin list');
+
+  await rejects(h.rpc1(mentor2, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ announcement: 'Nope' }) }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'reset_game', { p_game_id: game.id }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'reset_player_pin', { p_player_id: p1.id, p_new_pin: '1357' }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'rename_player', { p_player_id: p1.id, p_name: 'Jay' }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'remove_player', { p_player_id: p2.id }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['order-types'] }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'set_game_admin', { p_game_id: game.id, p_email: 'second@example.org', p_on: true }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'reset_exam', { p_player_id: p1.id, p_lesson_id: 'order-types' }), ONLY_ADMINS);
+
+  const [after] = await h.sql(`select announcement, starting_cash from public.games where id = $1`, [game.id]);
+  assert.equal(after.announcement, null);
+  near(after.starting_cash, 10000);
+  const players = await h.sql(`select display_name from public.players where game_id = $1 order by display_name`, [game.id]);
+  assert.deepEqual(players.map((p) => p.display_name), ['Jalen', 'Marcus'], 'nothing changed');
+  const [lessons] = await h.sql(`select count(*)::int n from public.game_lessons where game_id = $1`, [game.id]);
+  assert.equal(lessons.n, 0);
+});
+
+test('admins add other mentors by email, and a game always keeps one admin', async () => {
+  await h.createUser({ email: 'parent@example.org' });
+  await rejects(
+    h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'parent@example.org', p_on: true }),
+    /No mentor uses the email parent@example.org\. They need to create a mentor login and enter the mentor code first\./
+  );
+  await rejects(h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'nobody@example.org', p_on: true }), /No mentor uses the email nobody@example.org/);
+  await rejects(h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: '', p_on: true }), /No mentor uses the email/);
+  await rejects(h.rpc1(mentor, 'set_game_admin', { p_game_id: NO_GAME, p_email: 'second@example.org', p_on: true }), /Game not found/);
+  await rejects(
+    h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'mentor@example.org', p_on: false }),
+    /A game needs at least one admin\. Add another admin before removing this one\./
+  );
+
+  let admins = await h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: '  Second@Example.org ', p_on: true });
+  assert.deepEqual(
+    admins.map((a) => [a.user_id, a.email, a.display_name]),
+    [[mentor.id, 'mentor@example.org', 'Bro. Aiken'], [mentor2.id, 'second@example.org', 'Bro. Second']],
+    'email case and spaces do not matter'
+  );
+  admins = await h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'second@example.org', p_on: true });
+  assert.equal(admins.length, 2, 'adding an admin twice changes nothing');
+  const [row] = await h.sql(`select added_by from public.game_admins where game_id = $1 and user_id = $2`, [game.id, mentor2.id]);
+  assert.equal(row.added_by, mentor.id);
+
+  assert.equal((await gameFor(mentor2)).is_admin, true);
+  const g = await h.rpc1(mentor2, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ announcement: 'Welcome back' }) });
+  assert.equal(g.announcement, 'Welcome back');
+  await h.rpc1(mentor2, 'reset_player_pin', { p_player_id: p2.id, p_new_pin: '4321' });
+  const renamed = await h.rpc1(mentor2, 'rename_player', { p_player_id: p2.id, p_name: 'Marcus' });
+  assert.equal(renamed.display_name, 'Marcus');
+
+  // Either admin can remove the other, but never the last one standing.
+  admins = await h.rpc1(mentor2, 'set_game_admin', { p_game_id: game.id, p_email: 'mentor@example.org', p_on: false });
+  assert.deepEqual(admins.map((a) => a.user_id), [mentor2.id]);
+  await rejects(h.rpc1(mentor, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ announcement: 'Nope' }) }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor2, 'set_game_admin', { p_game_id: game.id, p_email: 'second@example.org', p_on: false }), /at least one admin/);
+  admins = await h.rpc1(mentor2, 'set_game_admin', { p_game_id: game.id, p_email: 'mentor@example.org', p_on: true });
+  assert.equal(admins.length, 2);
+  admins = await h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'second@example.org', p_on: false });
+  assert.deepEqual(admins.map((a) => a.user_id), [mentor.id]);
+  admins = await h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'second@example.org', p_on: false });
+  assert.deepEqual(admins.map((a) => a.user_id), [mentor.id], 'removing someone who is not an admin changes nothing');
+  assert.equal((await gameFor(mentor2)).is_admin, false);
+  await rejects(h.rpc1(mentor2, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ announcement: 'Nope' }) }), ONLY_ADMINS);
+});
+
+test('students cannot assign lessons, manage admins, reset exams, or see who the admins are', async () => {
+  await rejects(h.rpc1(s1, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['order-types'] }), /Mentor access/);
+  await rejects(h.rpc1(s1, 'set_game_admin', { p_game_id: game.id, p_email: 'mentor@example.org', p_on: true }), /Mentor access/);
+  await rejects(h.rpc1(s1, 'reset_exam', { p_player_id: p1.id, p_lesson_id: 'order-types' }), /Mentor access/);
+  await rejects(h.rpc1(null, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['order-types'] }), /permission denied/);
+  await rejects(h.rpc1(null, 'set_game_admin', { p_game_id: game.id, p_email: 'mentor@example.org', p_on: true }), /permission denied/);
+  await rejects(h.rpc1(null, 'reset_exam', { p_player_id: p1.id, p_lesson_id: 'order-types' }), /permission denied/);
+  await rejects(h.select(s1, `insert into public.game_lessons (game_id, lesson_id) values ($1, 'order-types')`, [game.id]), /permission denied/);
+  await rejects(h.select(s1, `insert into public.game_admins (game_id, user_id) values ($1, $2)`, [game.id, s1.id]), /permission denied/);
+  await rejects(h.select(s1, `update public.lesson_progress set attempts = 0 where player_id = $1`, [p1.id]), /permission denied/);
+  assert.equal((await h.select(s1, `select * from public.game_admins`)).length, 0, 'the admin list is for mentors');
+  const [n] = await h.sql(`select count(*)::int n from public.game_admins where game_id = $1`, [game.id]);
+  assert.equal(n.n, 1);
+});
+
+test('set_game_lessons replaces the list, and game_summary carries it to students', async () => {
+  await rejects(h.rpc1(mentor, 'set_game_lessons', { p_game_id: NO_GAME, p_lesson_ids: ['order-types'] }), /Game not found/);
+  let ids = await h.rpc1(mentor, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['order-types', 'what-is-a-stock'] });
+  assert.deepEqual(ids, ['order-types', 'what-is-a-stock']);
+  ids = await h.rpc1(mentor, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['researching-a-company', 'researching-a-company'] });
+  assert.deepEqual(ids, ['researching-a-company'], 'the old list is gone and a repeat collapses');
+  await rejects(h.rpc1(mentor, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['Order Types'] }), /Unknown lesson/);
+  assert.deepEqual((await gameFor(mentor)).required_lessons, ['researching-a-company'], 'a bad id leaves the list as it was');
+  ids = await h.rpc1(mentor, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['what-is-a-stock', 'order-types'] });
+  assert.deepEqual(ids, ['what-is-a-stock', 'order-types'], 'kept in the order given');
+
+  const summary = await h.rpc1(s1, 'game_summary', { p_game_id: game.id });
+  assert.deepEqual(summary.game.required_lessons, ['what-is-a-stock', 'order-types']);
+  assert.equal(summary.player_count, 2);
+  assert.deepEqual((await gameFor(mentor2)).required_lessons, ['what-is-a-stock', 'order-types']);
+  const mine = await h.select(s2, `select lesson_id from public.game_lessons where game_id = $1 order by position`, [game.id]);
+  assert.deepEqual(mine.map((r) => r.lesson_id), ['what-is-a-stock', 'order-types'], 'students in the game can read the list');
+  const outsider = await h.createUser({ anon: true });
+  assert.equal((await h.select(outsider, `select lesson_id from public.game_lessons`)).length, 0);
+});
+
+test('place_order is refused until the student passes every required lesson', async () => {
+  await h.setNow('2026-10-16T14:10:00Z');
+  await h.quotes([{ symbol: 'AAPL', price: 210, prev_close: 208, trade_time: '2026-10-16T14:10:00Z' }]);
+  const locked = /Finish your required lessons before trading\. Open Learn to see what is left\./;
+  await rejects(marketBuy(s1, p1.id), locked, 'Jalen passed order-types but not what-is-a-stock');
+  await rejects(marketBuy(s2, p2.id), locked);
+
+  await h.rpc1(mentor, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ status: 'paused' }) });
+  await rejects(marketBuy(s2, p2.id), /Trading is paused/, 'the game status answers first, as in the demo engine');
+  await h.rpc1(mentor, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ status: 'active' }) });
+
+  let r = await takeExam(s1, p1.id, 'what-is-a-stock', 50);
+  assert.equal(r.attempts, 1);
+  await rejects(marketBuy(s1, p1.id), locked, 'a failing score does not count');
+  r = await takeExam(s1, p1.id, 'what-is-a-stock', 75);
+  assert.deepEqual([r.score, r.attempts], [75, 2]);
+  const o = await marketBuy(s1, p1.id);
+  assert.equal(o.status, 'filled', 'passing at exactly 75 opens trading');
+  near(o.filled_price, 210);
+  const [pl] = await h.sql(`select cash from public.players where id = $1`, [p1.id]);
+  near(pl.cash, 10000 - 210);
+
+  await rejects(marketBuy(s2, p2.id), locked, 'a classmate who has not passed stays locked');
+  const pf = await h.rpc1(s2, 'get_portfolio', { p_player_id: p2.id });
+  near(pf.cash, 10000);
+  assert.equal((await h.rpc(s2, 'get_leaderboard', { p_game_id: game.id })).length, 2, 'everything but orders stays open');
+});
+
+test('complete_lesson counts tries, locks after the third miss, and ends after a pass', async () => {
+  await h.setNow('2026-10-16T14:11:00Z');
+  let r = await takeExam(s2, p2.id, 'reading-a-quote', 25);
+  assert.deepEqual([r.player_id, r.lesson_id, r.score, r.attempts, at(r.completed_at)], [p2.id, 'reading-a-quote', 25, 1, '2026-10-16T14:11:00.000Z']);
+  await h.setNow('2026-10-16T14:12:00Z');
+  r = await takeExam(s2, p2.id, 'reading-a-quote', 50);
+  assert.deepEqual([r.score, r.attempts, at(r.completed_at)], [50, 2, '2026-10-16T14:12:00.000Z'], 'a better score moves the date');
+  await h.setNow('2026-10-16T14:13:00Z');
+  r = await takeExam(s2, p2.id, 'reading-a-quote', 38);
+  assert.deepEqual([r.score, r.attempts, at(r.completed_at)], [50, 3, '2026-10-16T14:12:00.000Z'], 'a worse score keeps the best and its date');
+  await rejects(takeExam(s2, p2.id, 'reading-a-quote', 100), /You have used all 3 tries for this exam\. Ask a mentor to reset it\./);
+  const [row] = await h.select(s2, `select score, attempts from public.lesson_progress where player_id = $1 and lesson_id = 'reading-a-quote'`, [p2.id]);
+  assert.deepEqual(row, { score: 50, attempts: 3 }, 'the student can read their own count');
+
+  r = await takeExam(s2, p2.id, 'bulls-bears-volatility', 140);
+  assert.deepEqual([r.score, r.attempts], [100, 1], 'scores are kept between 0 and 100');
+  await rejects(takeExam(s2, p2.id, 'bulls-bears-volatility', 60), /You already passed this lesson, so there is nothing to retake\./);
+  await rejects(takeExam(s1, p1.id, 'order-types', 100), /already passed/, 'passed on the third try earlier, so no fourth is needed');
+  await rejects(takeExam(s2, p2.id, 'Reading A Quote', 90), /Unknown lesson/);
+  await rejects(takeExam(s1, p2.id, 'reading-a-quote', 90), /does not belong/);
+  const [n] = await h.sql(`select count(*)::int n from public.lesson_progress where player_id = $1`, [p2.id]);
+  assert.equal(n.n, 2, 'refused tries are not recorded');
+});
+
+test('reset_exam gives a fresh set of tries and keeps the best score', async () => {
+  await rejects(h.rpc1(mentor2, 'reset_exam', { p_player_id: p2.id, p_lesson_id: 'reading-a-quote' }), ONLY_ADMINS);
+  await rejects(h.rpc1(mentor, 'reset_exam', { p_player_id: p2.id, p_lesson_id: 'order-types' }), /This student has not taken that exam yet\./);
+  let r = await h.rpc1(mentor, 'reset_exam', { p_player_id: p2.id, p_lesson_id: 'reading-a-quote' });
+  assert.deepEqual([r.player_id, r.lesson_id, r.score, r.attempts], [p2.id, 'reading-a-quote', 50, 0]);
+  await h.setNow('2026-10-16T14:14:00Z');
+  r = await takeExam(s2, p2.id, 'reading-a-quote', 63);
+  assert.deepEqual([r.score, r.attempts], [63, 1], 'the next try is the first of a new set');
+  const [row] = await h.select(s2, `select score, attempts from public.lesson_progress where player_id = $1 and lesson_id = 'reading-a-quote'`, [p2.id]);
+  assert.deepEqual(row, { score: 63, attempts: 1 });
+  r = await h.rpc1(mentor, 'reset_exam', { p_player_id: p1.id, p_lesson_id: 'order-types' });
+  assert.deepEqual([r.score, r.attempts], [88, 0]);
+  await rejects(takeExam(s1, p1.id, 'order-types', 100), /already passed/, 'a reset never reopens a passed lesson');
+});
+
+test('game_roster counts the required lessons and how many each student has passed', async () => {
+  let roster = await rosterFor(mentor);
+  assert.deepEqual([roster[p1.id].lessons_required, roster[p1.id].lessons_required_passed, roster[p1.id].lessons_completed], [2, 2, 2]);
+  assert.deepEqual(
+    [roster[p2.id].lessons_required, roster[p2.id].lessons_required_passed, roster[p2.id].lessons_completed], [2, 0, 1],
+    'a pass on a lesson that is not required does not count toward the requirement'
+  );
+  const theirs = await rosterFor(mentor2);
+  assert.deepEqual([theirs[p2.id].lessons_required, theirs[p2.id].lessons_required_passed], [2, 0], 'a mentor who is not an admin sees the same counts');
+
+  assert.deepEqual(await h.rpc1(mentor, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: [] }), []);
+  roster = await rosterFor(mentor);
+  assert.deepEqual([roster[p2.id].lessons_required, roster[p2.id].lessons_required_passed, roster[p2.id].lessons_completed], [0, 0, 1]);
+  await h.setNow('2026-10-16T14:20:00Z');
+  await h.quotes([{ symbol: 'AAPL', price: 211, trade_time: '2026-10-16T14:20:00Z' }]);
+  const o = await marketBuy(s2, p2.id);
+  assert.equal(o.status, 'filled', 'with nothing required, trading opens for everyone');
+  near(o.filled_price, 211);
+});
+
+test('a game whose admins are all gone is open to every mentor', async () => {
+  await h.sql(`delete from public.game_admins where game_id = $1`, [game.id]);
+  for (const who of [mentor, mentor2]) {
+    const g = await gameFor(who);
+    assert.equal(g.is_admin, true);
+    assert.deepEqual(g.admins, []);
+  }
+  const g = await h.rpc1(mentor2, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ announcement: 'Open to all mentors' }) });
+  assert.equal(g.announcement, 'Open to all mentors');
+  assert.deepEqual(await h.rpc1(mentor2, 'set_game_lessons', { p_game_id: game.id, p_lesson_ids: ['order-types'] }), ['order-types']);
+  let admins = await h.rpc1(mentor2, 'set_game_admin', { p_game_id: game.id, p_email: 'second@example.org', p_on: true });
+  assert.deepEqual(admins.map((a) => a.user_id), [mentor2.id], 'the first mentor to add an admin takes the game over');
+  await rejects(h.rpc1(mentor, 'update_game', { p_game_id: game.id, p_patch: JSON.stringify({ announcement: 'Nope' }) }), ONLY_ADMINS);
+
+  // Deleting a mentor's account is how a game loses its admins: the admin row goes with it.
+  await h.sql(`delete from auth.users where id = $1`, [mentor2.id]);
+  assert.equal((await h.sql(`select count(*)::int n from public.game_admins where game_id = $1`, [game.id]))[0].n, 0);
+  assert.equal((await gameFor(mentor)).is_admin, true);
+  admins = await h.rpc1(mentor, 'set_game_admin', { p_game_id: game.id, p_email: 'mentor@example.org', p_on: true });
+  assert.deepEqual(admins.map((a) => a.user_id), [mentor.id]);
+  const [row] = await h.sql(`select added_by from public.game_admins where game_id = $1`, [game.id]);
+  assert.equal(row.added_by, mentor.id);
 });
